@@ -1,0 +1,7 @@
+numpy>=1.25.0
+scikit-learn>=1.4.0
+scipy>=1.12.0
+matplotlib>=3.8.0
+tensorflow-macos==2.10.0
+tensorflow-probability==0.18.0
+gpflow==2.9.1
