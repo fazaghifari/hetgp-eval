@@ -61,7 +61,7 @@ class MLHGP():
             noise_x_dep = np.exp(self.model_noise.predict(X))
 
             if print_noise_rmse:
-                print(f"RMSE_noise = {np.sqrt(mean_squared_error(self.model_noise.predict(X), variance_estimator))},\n pred_noise = {self.model_noise.predict(X)}, \n target_noise = {std_estimator}")
+                print(f"RMSE_noise = {np.sqrt(mean_squared_error(self.model_noise.predict(X), variance_estimator))},\n pred_noise = {self.model_noise.predict(X)}, \n target_noise = {variance_estimator}")
 
             # At the final iteration step we have to update the input-dependent noise in the model 
             if i == (self.max_iter-1):
