@@ -15,7 +15,7 @@ class NNPEHGP():
         self.z = None
         self.z_transformed = None
         self.k = k
-        self.model_knn = None
+        self.model_smoothing = None
 
     def _correction_factor(self, v):
         sv = np.sqrt(np.pi) / ( 2**(0.5*v) * gamma((v+1)/2) )
@@ -42,9 +42,9 @@ class NNPEHGP():
         if self.k is None:
             self.k = int(0.2 * X.shape[0])
 
-        self.model_knn = KNeighborsRegressor(n_neighbors=self.k)
-        self.model_knn.fit(X, self.z)
-        self.z_transformed = self.model_knn.predict(X)
+        self.model_smoothing = KNeighborsRegressor(n_neighbors=self.k)
+        self.model_smoothing.fit(X, self.z)
+        self.z_transformed = self.model_smoothing.predict(X)
 
 
         ## Step 4
