@@ -12,12 +12,13 @@ class MLHGP():
         model_noise: GaussianProcessRegressor from scikit-learn to fits the heteroscedastic noise
         max_iter: maximum iteration for training the MLHGP
     """
-    def __init__( self, model=None, model_noise=None, 
+    def __init__(self, model=None, model_noise=None, 
                  max_iter=5, noise_sample_size=150):
         self.model = model
         self.model_noise = model_noise
         self.max_iter = max_iter
         self.noise_sample_size = noise_sample_size
+        self.variance_est = None
     
     def fit(self, X, y, print_noise_rmse=False):
 
@@ -38,22 +39,29 @@ class MLHGP():
                 
             # Fit noise
             
-            # Define sample matrix t_i^j from Section 4 Kersting et al.
-            sample_matrix = np.zeros((len(y), self.noise_sample_size))
+            # # Define sample matrix t_i^j from Section 4 Kersting et al.
+            # sample_matrix = np.zeros((len(y), self.noise_sample_size))
 
-            for j in range(0, self.noise_sample_size):
-                sample_matrix[:, j] = np.random.multivariate_normal(mean_pred.reshape(len(mean_pred)), np.eye(len(std_pred))*std_pred)
+            # for j in range(0, self.noise_sample_size):
+            #     ## I think `np.eye(len(std_pred))*(std_pred)` should be `np.eye(len(std_pred))*(std_pred**2)`, but Im not sure
+            #     sample_matrix[:, j] = np.random.multivariate_normal(mean_pred.reshape(len(mean_pred)), np.eye(len(std_pred))*(std_pred))
 
-            # Estimate variance according to the formula from Section 4 Kersting et al.
-            variance_estimator = (0.5 / self.noise_sample_size) * np.sum((np.asarray(y) - sample_matrix.T) ** 2, axis=0)
-            std_estimator = np.log(variance_estimator+10**(-10)) #np.sqrt(variance_estimator)
+            # # Estimate variance according to the formula from Section 4 Kersting et al.
+            # variance_estimator = (0.5 / self.noise_sample_size) * np.sum((np.asarray(y) - sample_matrix.T) ** 2, axis=0)
+            # self.variance_est = variance_estimator
+            # variance_estimator = np.log(variance_estimator+10**(-10)) #np.sqrt(variance_estimator)
+
+            ## the std_pred should be std_pred**2, but Im not sure since it doesn't work well
+            variance_estimator = 0.5 * ((y - mean_pred)**2 + std_pred)
+            self.variance_est = variance_estimator
+            variance_estimator = np.log(variance_estimator)
             
-            self.model_noise.fit(X, std_estimator)
+            self.model_noise.fit(X, variance_estimator)
 
             noise_x_dep = np.exp(self.model_noise.predict(X))
 
             if print_noise_rmse:
-                print(f"RMSE_noise = {np.sqrt(mean_squared_error(self.model_noise.predict(X), std_estimator))},\n pred_noise = {self.model_noise.predict(X)}, \n target_noise = {std_estimator}")
+                print(f"RMSE_noise = {np.sqrt(mean_squared_error(self.model_noise.predict(X), variance_estimator))},\n pred_noise = {self.model_noise.predict(X)}, \n target_noise = {std_estimator}")
 
             # At the final iteration step we have to update the input-dependent noise in the model 
             if i == (self.max_iter-1):
