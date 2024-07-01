@@ -1,13 +1,14 @@
+import math
 import numpy as np
 from scipy.special import gamma
 from sklearn.gaussian_process.kernels import RBF, Matern, ConstantKernel, WhiteKernel
 from sklearn.metrics import mean_squared_error
-from sklearn.neighbors import KNeighborsRegressor
+from sklearn.neighbors import RadiusNeighborsRegressor
 
-class NNPEHGP():
+class RNHGP():
 
     def __init__(self, model=None, model_noise=None, v=2,
-                noise_sample_size=150, k=None):
+                noise_sample_size=150, radius=None, k=None):
         self.model = model
         self.model_noise = model_noise
         self.noise_sample_size = noise_sample_size
@@ -16,11 +17,16 @@ class NNPEHGP():
         self.z_transformed = None
         self.k = k
         self.model_smoothing = None
+        self.radius = radius
 
     def _correction_factor(self, v):
         sv = np.sqrt(np.pi) / ( 2**(0.5*v) * gamma((v+1)/2) )
         return sv
 
+    def _gaussian_kernel(self, distance):
+        weights = math.e**(-distance**2 / (2*self.radius**2))
+        return weights
+    
     def fit(self,X,y):
 
         ## Step 1
@@ -38,11 +44,11 @@ class NNPEHGP():
         self.z = z
 
         ## Step 3
-        # Smoothing z with knn
-        if self.k is None:
-            self.k = int(0.2 * X.shape[0])
+        # Smoothing z with RNRegressor
+        if self.radius is None:
+            self.radius = np.exp(self.model.kernel_.theta[1]) * 1  # 1 is a scaling
 
-        self.model_smoothing = KNeighborsRegressor(n_neighbors=self.k)
+        self.model_smoothing = RadiusNeighborsRegressor(radius= self.radius, weights=self._gaussian_kernel)
         self.model_smoothing.fit(X, self.z)
         self.z_transformed = self.model_smoothing.predict(X)
 

@@ -3,6 +3,7 @@ import sklearn.metrics
 import ot
 from ot.datasets import make_1D_gauss as gauss
 
+
 def noise_smse(pred_noise,act_noise):
     """Compute the standardized mean squared error.
     Please be consistent, if pred_noise is variance, then act_noise should be a variance.
@@ -20,6 +21,24 @@ def noise_smse(pred_noise,act_noise):
     smse = mse/var_noise
 
     return smse
+
+
+def nlpd_loss(act, pred, pred_var):
+    """Return Negative-log probability density (NLPD): See IMLHGP paper equation 36
+
+    Args:
+        act (np.array): reference target value
+        pred (np.array): predicted target value
+        pred_var (_type_): predicted target variance. CAREFUL! output of gaussian process is often set as stdev
+
+    Returns:
+        float: Negative-log probability density (NLPD)
+    """
+    first_term = np.mean(np.log(2*np.pi*pred_var)) / 2
+    second_term = np.mean(((act - pred)**2 /(2*pred_var)))
+    nlpd = first_term * second_term
+    return nlpd
+
 
 def wasserstein2(act_dist, pred_dist):
     """Compute Wasserstein-2 distance between distribution
@@ -64,7 +83,12 @@ def wasserstein2(act_dist, pred_dist):
     m2 = ot.dist(x.reshape((nbin, 1)), x.reshape((nbin, 1)), 'sqeuclidean')
 
     # Wasserstein-2(EMD) distance
-    d_emd2 = ot.emd2(pred_gauss, act_gauss, m2)
+    try:
+        d_emd2 = ot.emd2(pred_gauss, act_gauss, m2)
+    except:
+        errmsg = f"Error in calculating Wasserstein distance, distribution's stdev might be too small, predicted stdev: {std_pred_transformed}"
+        raise ValueError(errmsg)
+    
     dists = [x, act_gauss, pred_gauss]
 
     return d_emd2, dists, m2
@@ -80,9 +104,12 @@ def _gauss_maker(nbin, m, s):
     Returns:
         np.array: the distribution PDF/PMF
     """
-    if s != 0:
+    if s > 5e-1:  ## Threshold number for approximating gaussian dist with dirac delta
         dist = gauss(nbin, m, s)
     else:
         dist = np.zeros(nbin)
-        dist[int(np.around(m))] = 1
+        try:
+            dist[int(np.around(m))-1] = 1
+        except:
+            raise ValueError(f"info: mean value: {m}, stdev: {s}")
     return dist

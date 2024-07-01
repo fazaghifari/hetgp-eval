@@ -49,10 +49,8 @@ class IMLHGP():
         # To update noise in the correlation matrix, we can't just set model.alpha = noise.
         # We need to "retrain", however, since retraining could alter the hyperparams, we fix the hyperparameters
         # except for WhiteNoiseKernel, since we found that fixing all params would result in non-positive semidefinite matrix
-        self.model.alpha= noise_x_dep
-        self.model.kernel = ConstantKernel(const_kern, "fixed") * RBF(length_scale=lengthscale_kern, length_scale_bounds="fixed") + WhiteKernel(
-            noise_level=1, noise_level_bounds=(1e-2, 1e1)
-        )
+        self.model.alpha= noise_x_dep + 1e-7
+        self.model.kernel = ConstantKernel(const_kern, "fixed") * RBF(length_scale=lengthscale_kern, length_scale_bounds="fixed")
         self.model.fit(X, y)
     
 

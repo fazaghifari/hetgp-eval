@@ -1,7 +1,9 @@
 import numpy as np
+import math
 from sklearn.metrics import mean_squared_error
+from sklearn.neighbors import RadiusNeighborsRegressor
 
-class MLHGP():
+class RNHGP():
     """ 
     Sklearn-compatible implementation for "Most Likely Heteroscedastic Gaussian Process Regression" by 
     Kristian Kersting, Christian Plagemann, Patrick Pfaff and Wolfram Burgard
@@ -13,12 +15,16 @@ class MLHGP():
         max_iter: maximum iteration for training the MLHGP
     """
     def __init__(self, model=None, model_noise=None, 
-                 max_iter=5, noise_sample_size=150):
+                 max_iter=5, radius=None):
         self.model = model
         self.model_noise = model_noise
         self.max_iter = max_iter
-        self.noise_sample_size = noise_sample_size
+        self.radius = radius
         self.variance_est = None
+    
+    def _gaussian_kernel(self, distance):
+        weights = math.e**(-distance**2 / (2*self.radius**2))
+        return weights
     
     def fit(self, X, y, print_noise_rmse=False):
 
@@ -37,25 +43,20 @@ class MLHGP():
                 std_pred= np.sqrt(std_pred**2+np.exp(self.model_noise.predict(X)))
 
                 
-            # Fit noise
-            
-            # # Define sample matrix t_i^j from Section 4 Kersting et al.
-            # sample_matrix = np.zeros((len(y), self.noise_sample_size))
-
-            # for j in range(0, self.noise_sample_size):
-            #     ## I think `np.eye(len(std_pred))*(std_pred)` should be `np.eye(len(std_pred))*(std_pred**2)`, but Im not sure
-            #     sample_matrix[:, j] = np.random.multivariate_normal(mean_pred.reshape(len(mean_pred)), np.eye(len(std_pred))*(std_pred))
-
-            # # Estimate variance according to the formula from Section 4 Kersting et al.
-            # variance_estimator = (0.5 / self.noise_sample_size) * np.sum((np.asarray(y) - sample_matrix.T) ** 2, axis=0)
-            # self.variance_est = variance_estimator
-            # variance_estimator = np.log(variance_estimator+10**(-10)) #np.sqrt(variance_estimator)
-
-            ## the std_pred should be std_pred**2, but Im not sure since it doesn't work well
+        
             variance_estimator = 0.5 * ((y - mean_pred)**2 + std_pred**2)
             self.variance_est = variance_estimator
             variance_estimator = np.log(variance_estimator)
+
+            ## Variance estimator smoothing
+            if self.radius is None:
+                self.radius = np.exp(self.model.kernel_.theta[1]) * 1  # 1 is the scaling arbitrary number
+
+            self.model_smoothing = RadiusNeighborsRegressor(radius= self.radius, weights=self._gaussian_kernel)
+            self.model_smoothing.fit(X, variance_estimator)
+            variance_estimator = self.model_smoothing.predict(X)
             
+            # Fitting 2nd GP
             self.model_noise.fit(X, variance_estimator)
 
             noise_x_dep = np.exp(self.model_noise.predict(X))
