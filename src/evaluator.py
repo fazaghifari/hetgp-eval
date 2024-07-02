@@ -2,6 +2,7 @@ import numpy as np
 import sklearn.metrics
 import ot
 from ot.datasets import make_1D_gauss as gauss
+from scipy import stats
 
 
 def noise_smse(pred_noise,act_noise):
@@ -34,9 +35,18 @@ def nlpd_loss(act, pred, pred_var):
     Returns:
         float: Negative-log probability density (NLPD)
     """
-    first_term = np.mean(np.log(2*np.pi*pred_var)) / 2
-    second_term = np.mean(((act - pred)**2 /(2*pred_var)))
-    nlpd = first_term * second_term
+    # first_term = np.mean(np.log(2*np.pi*pred_var)) / 2
+    # second_term = np.mean(((act - pred)**2 /(2*pred_var)))
+    # nlpd = first_term * second_term
+    std = np.sqrt(pred_var.flatten())
+    actual = act.flatten()
+    mean = pred.flatten()
+    nlpd_i = []
+    for i,m in enumerate(mean):
+        prob = stats.norm(m, std[i]).cdf(actual[i])
+        logprob = np.log(prob)
+        nlpd_i.append(logprob)
+    nlpd = -1 * np.mean(nlpd_i) 
     return nlpd
 
 
