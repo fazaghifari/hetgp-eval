@@ -33,6 +33,7 @@ class RNHGP():
     def fit(self,X,y):
 
         noise_x_dep = self.model.alpha * np.ones(len(X))
+        lenscale_bounds = np.exp(self.model.kernel.bounds[1,:])
 
         for i in range(self.max_iter):
 
@@ -43,7 +44,7 @@ class RNHGP():
                 # pass
             else:
                 self.model.alpha= noise_x_dep + 1e-7 # Put the predicted heteroscedastic noise in alpha parameter plus jitter
-                self.model.kernel = ConstantKernel(1.0) * RBF(length_scale=1e-1, length_scale_bounds=(1e-2, 1e3))
+                self.model.kernel = ConstantKernel(1.0) * RBF(length_scale=1e-1, length_scale_bounds=lenscale_bounds)
                 self.model.fit(X, y)
 
                 # print(self.model.kernel_)
