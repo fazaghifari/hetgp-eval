@@ -6,7 +6,7 @@ from sklearn.neighbors import RadiusNeighborsRegressor
 from scipy.spatial.distance import cdist, pdist, squareform
 import math
 
-class RNHGP():
+class KSHGP():
 
     def __init__(self, model=None, model_noise=None, v=2,
                 noise_sample_size=150, radius=None, max_iter=5):
@@ -83,11 +83,11 @@ class RNHGP():
             ## Experiment kernel smoothing
             self.xtrain = X
             if i == 0:
-                self.length_scale = self.model.kernel_.theta[1:-1]
+                self.length_scale = np.exp(self.model.kernel_.theta[1:-1])
             else:
-                self.length_scale = self.model.kernel_.theta[1:]
+                self.length_scale = np.exp(self.model.kernel_.theta[1:])
 
-            dist = pdist(X / np.exp(self.length_scale), metric="sqeuclidean")
+            dist = pdist(X / self.length_scale, metric="sqeuclidean")
             kern = np.exp(-0.5 * dist)
             kern = squareform(kern)
             np.fill_diagonal(kern, 1)
@@ -105,7 +105,7 @@ class RNHGP():
             # except for WhiteNoiseKernel, since we found that fixing all params would result in non-positive semidefinite matrix
             if i == (self.max_iter-1):
                 self.model.alpha= noise_x_dep + 1e-7
-                self.model.kernel = ConstantKernel(1.0) * RBF(length_scale=1e-1, length_scale_bounds=(1e-2, 1e3))
+                self.model.kernel = ConstantKernel(1.0) * RBF(length_scale=1e-1, length_scale_bounds=lenscale_bounds)
                 self.model.fit(X, y)
     
 

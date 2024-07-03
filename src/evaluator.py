@@ -44,7 +44,7 @@ def nlpd_loss(act, pred, pred_var):
     nlpd_i = []
     for i,m in enumerate(mean):
         prob = stats.norm(m, std[i]).cdf(actual[i])
-        logprob = np.log(prob)
+        logprob = np.log(prob + 1e-20) # for stability
         nlpd_i.append(logprob)
     nlpd = -1 * np.mean(nlpd_i) 
     return nlpd
