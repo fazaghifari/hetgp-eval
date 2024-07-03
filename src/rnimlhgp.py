@@ -18,6 +18,7 @@ class RNHGP():
         self.k = k
         self.model_smoothing = None
         self.radius = radius
+        self.dim = None
 
     def _correction_factor(self, v):
         sv = np.sqrt(np.pi) / ( 2**(0.5*v) * gamma((v+1)/2) )
@@ -28,6 +29,15 @@ class RNHGP():
         return weights
     
     def fit(self,X,y):
+        """Fit the model
+
+        Args:
+            X (np.array): nxm matrix, n is the number of sample, m is the number of dimension
+            y (np.array): nx1 matrix
+        """
+
+        # Get the dimension of the features
+        self.dim = X.shape[1] 
 
         ## Step 1
         # Fit standard homoscedastic GP on the training dataset
@@ -46,7 +56,12 @@ class RNHGP():
         ## Step 3
         # Smoothing z with RNRegressor
         if self.radius is None:
-            self.radius = np.exp(self.model.kernel_.theta[1]) * 1  # 1 is a scaling
+            if self.dim == 1:
+                self.radius = np.exp(self.model.kernel_.theta[1])
+            else:
+                ## NOTE: Only works for GP with RBF + WhiteNoise kernel
+                multidim_radius = np.exp(self.model.kernel_.theta[1:-1]) # Excluding WhiteNoise kernel
+                self.radius = np.mean(multidim_radius)  # Taking the mean radius because RNRegressor can only handle 1 radius.
 
         self.model_smoothing = RadiusNeighborsRegressor(radius= self.radius, weights=self._gaussian_kernel)
         self.model_smoothing.fit(X, self.z)

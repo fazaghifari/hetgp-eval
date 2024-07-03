@@ -27,6 +27,15 @@ class RNHGP():
         return weights
     
     def fit(self, X, y, print_noise_rmse=False):
+        """Fit the model
+
+        Args:
+            X (np.array): nxm matrix, n is the number of sample, m is the number of dimension
+            y (np.array): nx1 matrix
+        """
+
+        # Get the dimension of the features
+        self.dim = X.shape[1] 
 
         noise_x_dep = self.model.alpha * np.ones(len(X))
 
@@ -50,7 +59,12 @@ class RNHGP():
 
             ## Variance estimator smoothing
             if self.radius is None:
-                self.radius = np.exp(self.model.kernel_.theta[1]) * 1  # 1 is the scaling arbitrary number
+                if self.dim == 1:
+                    self.radius = np.exp(self.model.kernel_.theta[1])
+                else:
+                    ## NOTE: Only works for GP with RBF + WhiteNoise kernel
+                    multidim_radius = np.exp(self.model.kernel_.theta[1:-1]) # Excluding WhiteNoise kernel
+                    self.radius = np.mean(multidim_radius)  # Taking the mean radius because RNRegressor can only handle 1 radius.
 
             self.model_smoothing = RadiusNeighborsRegressor(radius= self.radius, weights=self._gaussian_kernel)
             self.model_smoothing.fit(X, variance_estimator)
