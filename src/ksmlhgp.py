@@ -6,7 +6,7 @@ from sklearn.neighbors import RadiusNeighborsRegressor
 from scipy.spatial.distance import cdist, pdist, squareform
 import math
 
-class KSHGP():
+class KSMLHGP():
 
     def __init__(self, model=None, model_noise=None, v=2,
                 noise_sample_size=150, radius=None, max_iter=5):
@@ -43,22 +43,17 @@ class KSHGP():
                 self.model.fit(X, y)
                 # pass
             else:
-                self.model.alpha= noise_x_dep + 1e-7 # Put the predicted heteroscedastic noise in alpha parameter plus jitter
-                self.model.kernel = ConstantKernel(1.0) * RBF(length_scale=1e-1, length_scale_bounds=lenscale_bounds)
+                self.model.alpha= noise_x_dep
                 self.model.fit(X, y)
 
-                # print(self.model.kernel_)
-                kern_val = np.exp(self.model.kernel_.theta)
-                const_kern = kern_val[0]
-                lengthscale_kern = kern_val[1]
-
-            mean_pred, std_pred =  self.model.predict(X, return_std=True)
+            mean_pred, std_pred =  self.model.predict(X, return_std=True)  
+            if i > 0:
+                std_pred= np.sqrt(std_pred**2 + noise_x_dep)
 
             ## Step 2
             # Calculate regression residuals
-            r = np.abs(y - mean_pred)
-            z = r**self.v
-            self.z = z
+            r = 0.5 * ((y - mean_pred)**2 + std_pred**2)
+            self.z = np.log(r)
 
             # ## Step 3
             # # Smoothing z with RNRegressor
@@ -95,16 +90,14 @@ class KSHGP():
 
             ## Step 5
             # Update most likely noise levels
-            noise_mean_pred[noise_mean_pred < 0] = 0  # ensure nonnegative noise level
-            noise_x_dep = self._correction_factor(self.v) * noise_mean_pred
+            noise_x_dep = np.exp(noise_mean_pred)
 
             ## Step 5 -- specific to sklearn
             # To update noise in the correlation matrix, we can't just set model.alpha = noise.
             # We need to "retrain", however, since retraining could alter the hyperparams, we fix the hyperparameters
             # except for WhiteNoiseKernel, since we found that fixing all params would result in non-positive semidefinite matrix
             if i == (self.max_iter-1):
-                self.model.alpha= noise_x_dep + 1e-7
-                self.model.kernel = ConstantKernel(1.0) * RBF(length_scale=1e-1, length_scale_bounds=lenscale_bounds)
+                self.model.alpha= noise_x_dep
                 self.model.fit(X, y)
     
 
@@ -136,22 +129,22 @@ class KSHGP():
                 dist = cdist(X / self.length_scale, self.xtrain / self.length_scale, metric="sqeuclidean")
                 kern = np.exp(-0.5 * dist)
                 weights = (kern.T/kern.sum(axis=1)).T
-                var_al = weights @ self.z
-                var_al[var_al < 0] = 0
+                var_al = np.exp(weights @ self.z)
                 std_al = np.sqrt(var_al)
             elif return_std.lower()=="total":
                 # Full std (epistemic + aleatoric)
                 var_ep=std_ep**2
-                var_al = self.model_noise.predict(X)
-                var_al[var_al < 0] = 0
+                dist = cdist(X / self.length_scale, self.xtrain / self.length_scale, metric="sqeuclidean")
+                kern = np.exp(-0.5 * dist)
+                weights = (kern.T/kern.sum(axis=1)).T
+                var_al = np.exp(weights @ self.z)
                 std=np.sqrt(var_ep+var_al)
             else:
                 # Return aleatoric and epistemic separately
                 dist = cdist(X / self.length_scale, self.xtrain / self.length_scale, metric="sqeuclidean")
                 kern = np.exp(-0.5 * dist)
                 weights = (kern.T/kern.sum(axis=1)).T
-                var_al = weights @ self.z
-                var_al[var_al < 0] = 0
+                var_al = np.exp(weights @ self.z)
                 std_al = np.sqrt(var_al)
                 std = [std_al, std_ep]
             

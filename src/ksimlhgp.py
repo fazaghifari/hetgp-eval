@@ -1,23 +1,44 @@
+import math
 import numpy as np
 from scipy.special import gamma
 from sklearn.gaussian_process.kernels import RBF, Matern, ConstantKernel, WhiteKernel
 from sklearn.metrics import mean_squared_error
+from scipy.spatial.distance import cdist, pdist, squareform
+from sklearn.neighbors import RadiusNeighborsRegressor
 
-class IMLHGP():
+class KSIMLHGP():
 
     def __init__(self, model=None, model_noise=None, v=2,
-                noise_sample_size=150):
+                noise_sample_size=150, radius=None, k=None):
         self.model = model
         self.model_noise = model_noise
         self.noise_sample_size = noise_sample_size
         self.v = v
         self.z = None
+        self.z_transformed = None
+        self.k = k
+        self.model_smoothing = None
+        self.radius = radius
+        self.dim = None
 
     def _correction_factor(self, v):
         sv = np.sqrt(np.pi) / ( 2**(0.5*v) * gamma((v+1)/2) )
         return sv
 
+    def _gaussian_kernel(self, distance):
+        weights = math.e**(-distance**2 / (2*self.radius**2))
+        return weights
+    
     def fit(self,X,y):
+        """Fit the model
+
+        Args:
+            X (np.array): nxm matrix, n is the number of sample, m is the number of dimension
+            y (np.array): nx1 matrix
+        """
+
+        # Get the dimension of the features
+        self.dim = X.shape[1] 
 
         ## Step 1
         # Fit standard homoscedastic GP on the training dataset
@@ -36,11 +57,16 @@ class IMLHGP():
         self.z = z
 
         ## Step 3
-        # Train GP2 on x and z
-        # self.model_noise.fit(X, np.log(z))
-        self.model_noise.fit(X, z)
-        noise_mean_pred, noise_std_pred = self.model_noise.predict(X, return_std=True)
-        noise_mean_pred = (noise_mean_pred)
+        # Kernel smoothing
+        self.xtrain = X
+        self.length_scale = lengthscale_kern
+
+        dist = pdist(X / self.length_scale, metric="sqeuclidean")
+        kern = np.exp(-0.5 * dist)
+        kern = squareform(kern)
+        np.fill_diagonal(kern, 1)
+        weights = (kern.T/kern.sum(axis=1)).T
+        noise_mean_pred = weights @ self.z
 
         ## Step 4
         # Update most likely noise levels
@@ -52,7 +78,7 @@ class IMLHGP():
         # We need to "retrain", however, since retraining could alter the hyperparams, we fix the hyperparameters
         # except for WhiteNoiseKernel, since we found that fixing all params would result in non-positive semidefinite matrix
         self.model.alpha= noise_x_dep + 1e-7
-        self.model.kernel = ConstantKernel(const_kern, "fixed") * RBF(length_scale=lengthscale_kern, length_scale_bounds="fixed")
+        self.model.kernel = ConstantKernel(const_kern, "fixed") * RBF(length_scale=lengthscale_kern, length_scale_bounds="fixed") 
         self.model.fit(X, y)
     
 
@@ -81,18 +107,27 @@ class IMLHGP():
                 std = std_ep
             elif return_std.lower()=="aleatoric":
                 # Aleatoric std
-                var_al = self.model_noise.predict(X)
+                dist = cdist(X / self.length_scale, self.xtrain / self.length_scale, metric="sqeuclidean")
+                kern = np.exp(-0.5 * dist)
+                weights = (kern.T/kern.sum(axis=1)).T
+                var_al = weights @ self.z
                 var_al[var_al < 0] = 0
-                std = np.sqrt(var_al)
+                std_al = np.sqrt(var_al)
             elif return_std.lower()=="total":
                 # Full std (epistemic + aleatoric)
                 var_ep=std_ep**2
-                var_al = self.model_noise.predict(X)
+                dist = cdist(X / self.length_scale, self.xtrain / self.length_scale, metric="sqeuclidean")
+                kern = np.exp(-0.5 * dist)
+                weights = (kern.T/kern.sum(axis=1)).T
+                var_al = weights @ self.z
                 var_al[var_al < 0] = 0
                 std=np.sqrt(var_ep+var_al)
             else:
                 # Return aleatoric and epistemic separately
-                var_al = self.model_noise.predict(X)
+                dist = cdist(X / self.length_scale, self.xtrain / self.length_scale, metric="sqeuclidean")
+                kern = np.exp(-0.5 * dist)
+                weights = (kern.T/kern.sum(axis=1)).T
+                var_al = weights @ self.z
                 var_al[var_al < 0] = 0
                 std_al = np.sqrt(var_al)
                 std = [std_al, std_ep]

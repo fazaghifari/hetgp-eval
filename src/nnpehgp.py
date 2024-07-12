@@ -29,7 +29,9 @@ class NNPEHGP():
         mean_pred, std_pred =  self.model.predict(X, return_std=True)
         kern_val = np.exp(self.model.kernel_.theta)
         const_kern = kern_val[0]
-        lengthscale_kern = kern_val[1]
+        # check problem dimension and get the right lengthscale
+        prob_dim = X.shape[1]
+        lengthscale_kern = kern_val[1:prob_dim+1]
 
         ## Step 2
         # Calculate regression residuals
