@@ -5,3 +5,4 @@ matplotlib>=3.8.0
 tensorflow-macos==2.10.0
 tensorflow-probability==0.18.0
 gpflow==2.9.1
+ipykernel==6.29.5
