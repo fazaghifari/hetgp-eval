@@ -164,4 +164,4 @@ cython_debug/
 #.idea/
 *.ipynb
 img/
-output/
+output/.DS_Store
