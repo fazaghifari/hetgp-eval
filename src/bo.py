@@ -1,5 +1,6 @@
 from typing import Any
-
+import numpy as np
+from cmaes import CMA
 
 class BayesianOptimizer:
     def __init__(
@@ -32,6 +33,11 @@ class BayesianOptimizer:
 
 
 class CMAESAcqOptimizer:
+    """
+    usage:
+    pip install cmaes 
+    https://pypi.org/project/cmaes/
+    """
     def __init__(self, xdim, n_candidates) -> None:
         self.xdim = xdim
         self.n_candidates = n_candidates
@@ -39,6 +45,32 @@ class CMAESAcqOptimizer:
     def optimize(self, acquisition_function, model):
         # Optimize with CMAES
         return NotImplementedError
+
+    def _cmaes_minimizer(obj_f, start, bounds=None, n_generation=100):
+        if len(start) == 1:
+            start = np.append(start, [0])
+            obj_f_acq = lambda x: obj_f([x[0]])
+            bounds = np.stack([bounds[0], [0, 1]])
+        else:
+            obj_f_acq = obj_f
+
+        optimizer = CMA(mean=start, sigma=0.1, bounds=bounds)
+        best_solution = None
+        for generation in range(n_generation):
+            solutions = []
+            for _ in range(optimizer.population_size):
+                x = optimizer.ask()
+                value = obj_f_acq(x)
+                solutions.append((x, value))
+            optimizer.tell(solutions)
+
+            if generation == 0:
+                best_solution = solutions[0]
+            else:
+                if best_solution[1] > solutions[0][1]:
+                    best_solution = solutions[0]
+
+        return best_solution[0], best_solution[1]
 
 
 class AugmentedEIAcqFunction:
