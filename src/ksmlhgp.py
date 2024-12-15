@@ -31,7 +31,7 @@ class KSMLHGP():
         return weights
     
     def fit(self,X,y):
-
+        
         noise_x_dep = self.model.alpha * np.ones(len(X))
         lenscale_bounds = np.exp(self.model.kernel.bounds[1,:])
 
@@ -99,7 +99,8 @@ class KSMLHGP():
             if i == (self.max_iter-1):
                 self.model.alpha= noise_x_dep
                 self.model.fit(X, y)
-    
+
+        self.model.alpha= 1e-10
 
     def predict(self, X, return_std=None):
         """
