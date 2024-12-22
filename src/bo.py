@@ -20,9 +20,7 @@ class BayesianOptimizer:
         self.acquisition_function.initialize_acquisition_function(
             self.model, observations
         )
-        x_cand, acq_val = self.acq_optimizer.optimize(
-            self.acquisition_function, self.model
-        )
+        x_cand, acq_val = self.acq_optimizer.optimize(self.acquisition_function)
         return x_cand, acq_val
 
     def add_point_to_observations(self, new_x, new_y, observations):
@@ -53,23 +51,37 @@ class CMAESAcqOptimizer:
     https://pypi.org/project/cmaes/
     """
 
-    def __init__(self, xdim, n_candidates) -> None:
-        self.xdim = xdim
-        self.n_candidates = n_candidates
+    def __init__(self, n_initial, bounds, n_generation=1000, cmaes_sigma=0.1) -> None:
+        self.bounds = bounds
+        self.xdim = bounds.shape[1]
+        self.n_initial = n_initial
+        self.n_generation = n_generation
+        self.cmaes_sigma = cmaes_sigma
 
-    def optimize(self, acquisition_function, model):
-        # Optimize with CMAES
-        return NotImplementedError
+    def optimize(self, acquisition_function):
+        # CMAES optimization
+        start = np.random.uniform(self.bounds[0], self.bounds[1], self.xdim)  # [D]
 
-    def _cmaes_minimizer(obj_f, start, bounds=None, n_generation=100):
-        if len(start) == 1:
+        best_solution, best_value = self._cmaes_maximizer(
+            acquisition_function,
+            start,
+            bounds=self.bounds,
+            n_generation=self.n_generation,
+            sigma=self.cmaes_sigma,
+        )
+        return best_solution, best_value
+
+    def _cmaes_maximizer(self, obj_f, start, bounds, n_generation, sigma):
+        if self.xdim == 1:
+            # trick for 1d
             start = np.append(start, [0])
-            obj_f_acq = lambda x: obj_f([x[0]])
-            bounds = np.stack([bounds[0], [0, 1]])
+            obj_f_acq = lambda x: obj_f(np.array([x[0]]).reshape(-1, 1)) * -1
+            bounds = np.concatenate((bounds.T, [[0, 1]]))
         else:
-            obj_f_acq = obj_f
+            obj_f_acq = lambda x: obj_f(x) * -1
+            bounds = bounds.T
 
-        optimizer = CMA(mean=start, sigma=0.1, bounds=bounds)
+        optimizer = CMA(mean=start, sigma=sigma, bounds=bounds)
         best_solution = None
         for generation in range(n_generation):
             solutions = []
@@ -84,8 +96,11 @@ class CMAESAcqOptimizer:
             else:
                 if best_solution[1] > solutions[0][1]:
                     best_solution = solutions[0]
+        if self.xdim == 1:
+            return best_solution[0][None, 0, None], best_solution[1]
 
-        return best_solution[0], best_solution[1]
+        else:
+            return best_solution[0][None, None], best_solution[1]
 
 
 class RandomAcqOptimizer:
@@ -94,12 +109,12 @@ class RandomAcqOptimizer:
         self.n_candidates = n_candidates
         self.bounds = bounds
 
-    def optimize(self, acquisition_function, model):
+    def optimize(self, acquisition_function):
         # Random search
         x_cands = np.random.uniform(
             self.bounds[0], self.bounds[1], (self.n_candidates, self.bounds.shape[1])
-        )
-        acq_values = acquisition_function(x_cands)
+        )  # [N, D]
+        acq_values = acquisition_function(x_cands)  # [N]
         best_idx = np.argmax(acq_values)
         return x_cands[best_idx], acq_values[best_idx]
 
@@ -108,6 +123,7 @@ class AugmentedEIAcqFunction:
     """
     TODO: Implement Augmented Expected Improvement
     """
+
     def __init__(self, alpha) -> None:
         self.alpha = alpha
 
@@ -132,7 +148,7 @@ class AugmentedEIAcqFunction:
 
 
 class RAHBOAcqFunction:
-    def __init__(self, alpha=0.1, beta=0.5) -> None:
+    def __init__(self, alpha=1, beta=0.5) -> None:
         self.alpha = alpha
         self.beta = beta
 
