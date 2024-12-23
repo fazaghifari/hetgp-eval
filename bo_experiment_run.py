@@ -2,7 +2,12 @@ import numpy as np
 
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel, WhiteKernel
 from sklearn.gaussian_process import GaussianProcessRegressor
+from src.mlhgp import MLHGP, HomGP
+from src.imlhgp import IMLHGP
+from src.nnpehgp import NNPEHGP
 from src.ksmlhgp import KSMLHGP
+from src.ksimlhgp import KSIMLHGP
+
 from src.bo import (
     BayesianOptimizer,
     AugmentedEIAcqFunction,
@@ -36,32 +41,32 @@ benchmark_f_dict = {"f1_toy": f1}
 
 
 def build_model(model_name):
-    if model_name == "GP":
-        base_kernel = ConstantKernel(1.0) * RBF(
-            length_scale=0.1, length_scale_bounds=(0.01, 100)
-        ) + WhiteKernel(noise_level=1, noise_level_bounds=(0.001, 10))
-        noise_kernel = ConstantKernel(1.0) * RBF(
-            length_scale=0.1, length_scale_bounds=(0.01, 100)
-        ) + WhiteKernel(noise_level=1, noise_level_bounds=(0.001, 10))
+    base_kernel = ConstantKernel(1.0) * RBF(
+        length_scale=0.1, length_scale_bounds=(0.01, 100)
+    ) + WhiteKernel(noise_level=1, noise_level_bounds=(0.001, 10))
 
-        gp = GaussianProcessRegressor(kernel=base_kernel, n_restarts_optimizer=25)
-        model = gp
+    noise_kernel = ConstantKernel(1.0) * RBF(
+        length_scale=0.1, length_scale_bounds=(0.01, 100)
+    ) + WhiteKernel(noise_level=1, noise_level_bounds=(0.001, 10))
 
-    elif model_name == "KSMLHGP":
-        base_kernel = ConstantKernel(1.0) * RBF(
-            length_scale=0.1, length_scale_bounds=(0.01, 100)
-        ) + WhiteKernel(noise_level=1, noise_level_bounds=(0.001, 10))
-        noise_kernel = ConstantKernel(1.0) * RBF(
-            length_scale=0.1, length_scale_bounds=(0.01, 100)
-        ) + WhiteKernel(noise_level=1, noise_level_bounds=(0.001, 10))
+    gp = GaussianProcessRegressor(kernel=base_kernel, n_restarts_optimizer=25)
+    gp_noise = GaussianProcessRegressor(kernel=noise_kernel, n_restarts_optimizer=25)
 
-        gp = GaussianProcessRegressor(kernel=base_kernel, n_restarts_optimizer=25)
-        gp_noise = GaussianProcessRegressor(
-            kernel=noise_kernel, n_restarts_optimizer=25
+    model_mapping = {
+        "GP": gp,
+        "KSMLHGP": KSMLHGP(model=gp, model_noise=gp_noise),
+        "KSIMLHGP": KSIMLHGP(model=gp, model_noise=gp_noise),
+        "MLHGP": MLHGP(model=gp, model_noise=gp_noise),
+        "IMLHGP": IMLHGP(model=gp, model_noise=gp_noise),
+        "NNPEHGP": NNPEHGP(model=gp, model_noise=gp_noise),
+    }
+
+    if model_name not in model_mapping:
+        raise ValueError(
+            f"Unsupported model name: {model_name}. Supported models are: {list(model_mapping.keys())}"
         )
 
-        model = KSMLHGP(model=gp, model_noise=gp_noise)
-    return model
+    return model_mapping[model_name]
 
 
 def build_acq_f(acq_f_params):
@@ -70,7 +75,7 @@ def build_acq_f(acq_f_params):
             alpha=acq_f_params["params"]["alpha"], beta=acq_f_params["params"]["beta"]
         )
     elif acq_f_params["name"] == "LCB":
-        acq_f = LCBAcqFunction(alpha=acq_f_params["params"]["alpha"])
+        acq_f = LCBAcqFunction(beta=acq_f_params["params"]["beta"])
     return acq_f
 
 
@@ -141,10 +146,59 @@ def run_bo_experiments(experiment_case):
 
         bo_results[method_name] = results_repeat
 
+    return bo_results
+
+
+def plot_results(bo_results, experiment_case, save_path=None):
+    import matplotlib.pyplot as plt
+
+    n_init = experiment_case["n_init"]
+
+    for method_name in bo_results:
+        results = bo_results[method_name]
+
+        cum_best_list = []
+        for i, result in enumerate(results):
+            cum_best = np.minimum.accumulate(result["y"])
+            cum_best_list.append(cum_best)
+
+        cum_best_list = np.array(cum_best_list)
+        mean = np.mean(cum_best_list, axis=0)[n_init - 1 :]
+        std = np.std(cum_best_list, axis=0)[n_init - 1 :]
+        plt.plot(mean, label=method_name)
+        plt.fill_between(range(len(mean)), mean - std, mean + std, alpha=0.2)
+    plt.legend()
+    plt.xlabel("Iteration")
+    plt.ylabel("Best value")
+
+    if save_path is not None:
+        plt.savefig(save_path, dpi=300, bbox_inches="tight")
+
+    plt.show()
+
 
 if __name__ == "__main__":
+    import argparse
     import json
 
-    with open("bo_experiments_config.json", "r") as f:
+    parser = argparse.ArgumentParser(description="Run BO experiments and save results.")
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="bo_experiments_config.json",
+        help="Path to the JSON configuration file (default: bo_experiments_config.json).",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default="bo_results.png",
+        help="Path to save the output PNG file (default: bo_results.png).",
+    )
+
+    args = parser.parse_args()
+
+    with open(args.config, "r") as f:
         experiment_case = json.load(f)
-    run_bo_experiments(experiment_case)
+
+    bo_results = run_bo_experiments(experiment_case)
+    plot_results(bo_results, experiment_case, save_path=args.output)

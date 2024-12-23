@@ -2,7 +2,7 @@
     "benchmark_f": "f1_toy",
     "bounds": [[0], [1]],
     "n_init": 3,
-    "n_iters": 10,
+    "n_iters": 100,
     "n_repeats": 10,
     "verbose": true,
     "methods": {
@@ -11,8 +11,8 @@
             "acq_f": {
                 "name": "RAHBO",
                 "params": {
-                    "alpha": 0.01,
-                    "beta": 0.01
+                    "alpha": 1,
+                    "beta": 0.5
                 }
             },
             "bo_optimizer": "CMAES"
@@ -22,7 +22,7 @@
             "acq_f": {
                 "name": "LCB",
                 "params": {
-                    "alpha": 0.1
+                    "beta": 0.5
                 }
             },
             "bo_optimizer": "CMAES"
