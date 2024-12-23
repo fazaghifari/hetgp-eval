@@ -1,0 +1,31 @@
+{
+    "benchmark_f": "f1_toy",
+    "bounds": [[0], [1]],
+    "n_init": 3,
+    "n_iters": 10,
+    "n_repeats": 10,
+    "verbose": true,
+    "methods": {
+        "KSMLHGP-RAHBO": {
+            "model": "KSMLHGP",
+            "acq_f": {
+                "name": "RAHBO",
+                "params": {
+                    "alpha": 0.01,
+                    "beta": 0.01
+                }
+            },
+            "bo_optimizer": "CMAES"
+        },
+        "GP-LCB": {
+            "model": "GP",
+            "acq_f": {
+                "name": "LCB",
+                "params": {
+                    "alpha": 0.1
+                }
+            },
+            "bo_optimizer": "CMAES"
+        }
+    }
+}

@@ -6,7 +6,7 @@ import copy
 
 class BayesianOptimizer:
     def __init__(
-        self, model, acquisition_function, true_function, acq_optimizer, verbose=True
+        self, model, acquisition_function, true_function, acq_optimizer, verbose=False
     ) -> None:
         self.model = model
         self.acquisition_function = acquisition_function
@@ -32,6 +32,18 @@ class BayesianOptimizer:
 
     def optimize(self, observations, n_iter):
         current_observations = copy.deepcopy(observations)
+
+        if self.verbose:
+            print("Initial observations:")
+            print(current_observations)
+            best_idx = np.argmax(current_observations["y"])
+            print(
+                "Best observation - X:",
+                current_observations["X"][best_idx],
+                "y:",
+                current_observations["y"][best_idx],
+            )
+
         for i in range(n_iter):
             new_x, acq_val = self.step(current_observations)
             new_y = self.true_function(new_x)
@@ -39,7 +51,7 @@ class BayesianOptimizer:
                 new_x, new_y, current_observations
             )
             if self.verbose:
-                print(f"Iteration {i}: x={new_x}, y={new_y}, acq={acq_val}")
+                print(f"Iteration {i+1}: x={new_x}, y={new_y}, acq={acq_val}")
         return current_observations
 
 
@@ -162,3 +174,19 @@ class RAHBOAcqFunction:
         std_al, std_ep = stds_pred
         rahbo = -mean_pred + (self.beta * std_ep) - (self.alpha * (std_al**2))
         return rahbo
+
+
+class LCBAcqFunction:
+    "Note this is negative LCB thus maximize it!"
+
+    def __init__(self, beta=1) -> None:
+        self.beta = beta
+
+    def initialize_acquisition_function(self, model, observations):
+        # run this everytime model is updated
+        self.model = model
+
+    def __call__(self, x_cand) -> Any:
+        mean_pred, std_pred = self.model.predict(x_cand, return_std=True)
+        neg_lcb = -mean_pred - self.beta * std_pred
+        return neg_lcb
