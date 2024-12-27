@@ -15,6 +15,7 @@ from src.bo import (
     CMAESAcqOptimizer,
     RandomAcqOptimizer,
     RAHBOAcqFunction,
+    ANPEIAcqFunction,
 )
 
 ## SUPPRESS ALL WARNINGS
@@ -71,12 +72,20 @@ def build_model(model_name):
 
 def build_acq_f(acq_f_params):
     if acq_f_params["name"] == "RAHBO":
-        acq_f = RAHBOAcqFunction(
+        return RAHBOAcqFunction(
             alpha=acq_f_params["params"]["alpha"], beta=acq_f_params["params"]["beta"]
         )
     elif acq_f_params["name"] == "LCB":
-        acq_f = LCBAcqFunction(beta=acq_f_params["params"]["beta"])
-    return acq_f
+        return LCBAcqFunction(beta=acq_f_params["params"]["beta"])
+
+    elif acq_f_params["name"] == "AugmentedEI":
+        return AugmentedEIAcqFunction()
+
+    elif acq_f_params["name"] == "ANPEI":
+        return ANPEIAcqFunction(alpha=acq_f_params["params"]["alpha"])
+
+    else:
+        raise ValueError(f"Unsupported acquisition function: {acq_f_params['name']}")
 
 
 def build_acq_opt(acq_optimizer_name, bounds):
@@ -116,7 +125,7 @@ def run_bo_experiments(experiment_case):
         # Run BO for each repeat
         for i in range(n_repeats):
             if experiment_case["verbose"]:
-                print(f"Running rep {i+1}/{n_repeats}")
+                print(f"Running rep {i+1}/{n_repeats} of {method_name}")
 
             init_dataset = init_datasets[i]
             model = build_model(running_method["model"])

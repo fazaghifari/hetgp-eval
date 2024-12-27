@@ -6,6 +6,13 @@
     "n_repeats": 10,
     "verbose": true,
     "methods": {
+        "KSMLHGP-AEI": {
+            "model": "KSMLHGP",
+            "acq_f": {
+                "name": "AugmentedEI"
+            },
+            "bo_optimizer": "CMAES"
+        },
         "KSMLHGP-RAHBO": {
             "model": "KSMLHGP",
             "acq_f": {
@@ -13,6 +20,16 @@
                 "params": {
                     "alpha": 1,
                     "beta": 0.5
+                }
+            },
+            "bo_optimizer": "CMAES"
+        },
+        "KSMLHGP-ANPEI": {
+            "model": "KSMLHGP",
+            "acq_f": {
+                "name": "ANPEI",
+                "params": {
+                    "alpha": 1
                 }
             },
             "bo_optimizer": "CMAES"

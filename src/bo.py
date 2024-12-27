@@ -2,6 +2,7 @@ from typing import Any
 import numpy as np
 from cmaes import CMA
 import copy
+from scipy.stats import norm
 
 
 class BayesianOptimizer:
@@ -56,13 +57,6 @@ class BayesianOptimizer:
 
 
 class CMAESAcqOptimizer:
-    """
-    TODO: Implement CMAES optimizer
-    usage:
-    pip install cmaes
-    https://pypi.org/project/cmaes/
-    """
-
     def __init__(self, n_initial, bounds, n_generation=1000, cmaes_sigma=0.1) -> None:
         self.bounds = bounds
         self.xdim = bounds.shape[1]
@@ -132,31 +126,53 @@ class RandomAcqOptimizer:
 
 
 class AugmentedEIAcqFunction:
-    """
-    TODO: Implement Augmented Expected Improvement
-    """
+    def __init__(self) -> None:
+        pass
 
-    def __init__(self, alpha) -> None:
+    def initialize_acquisition_function(self, model, observations):
+        # run this everytime model is updated
+        self.model = model
+        self.eta = observations["y"].min()
+
+    def __call__(self, x_cand) -> Any:
+        mean_pred, stds_pred = self.model.predict(x_cand, return_std="multi")
+        std_al, std_ep = stds_pred
+
+        cdf = norm.cdf(self.eta, loc=mean_pred, scale=std_ep)
+        pdf = norm.pdf(self.eta, loc=mean_pred, scale=std_ep)
+
+        # Expected improvement (EI) calculation
+        ei = (self.eta - mean_pred) * cdf + np.square(std_ep) * pdf
+
+        # Augmentation term
+        augmentation = 1 - std_al / np.sqrt(np.square(std_al) + np.square(std_ep))
+
+        return ei + augmentation
+
+
+class ANPEIAcqFunction:
+    def __init__(self, alpha=1) -> None:
         self.alpha = alpha
 
     def initialize_acquisition_function(self, model, observations):
         # run this everytime model is updated
-        return NotImplementedError
+        self.model = model
+        self.eta = observations["y"].min()
 
     def __call__(self, x_cand) -> Any:
-        """
-        TODO
-        # Huang et al  Global optimization of stochastic black-box systems via sequential kriging meta-models. Journal of global optimization, 2006
-        mean, variance = self._model.predict(tf.squeeze(x, -2))
-        normal = tfp.distributions.Normal(mean, tf.sqrt(variance))
-        ei = (self._eta - mean) * normal.cdf(self._eta) + variance * normal.prob(self._eta)
-        augmentation = 1 - (tf.math.sqrt(self._noise_variance)) / (
-            tf.math.sqrt(self._noise_variance + variance)
-        )
-        return ei * augmentation
+        mean_pred, stds_pred = self.model.predict(x_cand, return_std="multi")
+        std_al, std_ep = stds_pred
 
-        """
-        return NotImplementedError
+        cdf = norm.cdf(self.eta, loc=mean_pred, scale=std_ep)
+        pdf = norm.pdf(self.eta, loc=mean_pred, scale=std_ep)
+
+        # Expected improvement (EI) calculation
+        ei = (self.eta - mean_pred) * cdf + np.square(std_ep) * pdf
+
+        # Penalization term
+        anpei = ei - (self.alpha * (std_al**2))
+
+        return anpei
 
 
 class RAHBOAcqFunction:
