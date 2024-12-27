@@ -2,7 +2,7 @@ import numpy as np
 
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel, WhiteKernel
 from sklearn.gaussian_process import GaussianProcessRegressor
-from src.mlhgp import MLHGP, HomGP
+from src.mlhgp import MLHGP
 from src.imlhgp import IMLHGP
 from src.nnpehgp import NNPEHGP
 from src.ksmlhgp import KSMLHGP
@@ -24,21 +24,37 @@ import warnings
 warnings.filterwarnings("ignore")
 
 
-def g1(X):
-    # logistic
-    X = 20 * X - 10  # [0, 1] -> [-10, 10]
-    return 1 / (1 + np.exp(-X)) / 10
+class F1Toy:
+    """
+    Toy function used in RAHBO paper
+    """
+
+    def __init__(self, add_noise=True):
+        self.add_noise = add_noise
+
+    @property
+    def bounds(self):
+        return np.array([[0], [1]])
+
+    @property
+    def minimum(self):
+        return -0.5
+
+    def noise_func(self, X):
+        X = 20 * X - 10  # [0, 1] -> [-10, 10]
+        return 1 / (1 + np.exp(-X)) / 10
+
+    def __call__(self, X):
+        target = 0.5 * np.sin(X * 20)
+        if self.add_noise:
+            rng = np.random.RandomState(1)
+            target += rng.normal(
+                np.zeros_like(X), self.noise_func(X), size=target.shape
+            )
+        return target.squeeze()
 
 
-def f1(X, add_noise=False):
-    target = 0.5 * np.sin(X * 20)
-    if add_noise:
-        rng = np.random.RandomState(1)
-        target += rng.normal(np.zeros_like(X), g1(X), size=target.shape)
-    return target.squeeze()
-
-
-benchmark_f_dict = {"f1_toy": f1}
+benchmark_f_dict = {"f1_toy": F1Toy()}
 
 
 def build_model(model_name):
@@ -103,19 +119,19 @@ def run_bo_experiments(experiment_case):
     n_repeats = experiment_case["n_repeats"]
 
     init_datasets = []
-    bounds = np.array(experiment_case["bounds"])
+    bounds = benchmark_f.bounds
     for _ in range(n_repeats):
         # sample initial observations for each repeat
         x_init = np.random.uniform(bounds[0], bounds[1], (n_init, bounds.shape[1]))
-        y_init = benchmark_f(x_init, add_noise=True)
+        y_init = benchmark_f(x_init)
         init_dataset = {"X": x_init, "y": y_init}
         init_datasets.append(init_dataset)
 
     bo_results = {}
     for method_name in experiment_case["methods"]:
         running_method = experiment_case["methods"][method_name]
+        print("=====================================")
         if experiment_case["verbose"]:
-            print("=====================================")
             print(f"Running BO for method: {method_name}")
             print(f"Model: {running_method['model']}")
             print(f"Acquisition function: {running_method['acq_f']}")
@@ -150,9 +166,8 @@ def run_bo_experiments(experiment_case):
                 print(
                     f"Best observation - X: {result['X'][best_idx]}, y: {result['y'][best_idx]}"
                 )
-                print("=====================================")
-            results_repeat.append(result)
 
+            results_repeat.append(result)
         bo_results[method_name] = results_repeat
 
     return bo_results
@@ -160,30 +175,35 @@ def run_bo_experiments(experiment_case):
 
 def plot_results(bo_results, experiment_case, save_path=None):
     import matplotlib.pyplot as plt
+    import numpy as np
 
     n_init = experiment_case["n_init"]
 
-    for method_name in bo_results:
-        results = bo_results[method_name]
+    fig, ax = plt.subplots(figsize=(8, 6))  # Create a figure and axis
 
+    for method_name, results in bo_results.items():
         cum_best_list = []
-        for i, result in enumerate(results):
+        for result in results:
             cum_best = np.minimum.accumulate(result["y"])
             cum_best_list.append(cum_best)
 
         cum_best_list = np.array(cum_best_list)
         mean = np.mean(cum_best_list, axis=0)[n_init - 1 :]
         std = np.std(cum_best_list, axis=0)[n_init - 1 :]
-        plt.plot(mean, label=method_name)
-        plt.fill_between(range(len(mean)), mean - std, mean + std, alpha=0.2)
-    plt.legend()
-    plt.xlabel("Iteration")
-    plt.ylabel("Best value")
+        ax.plot(mean, label=method_name)  # Use `ax.plot`
+        ax.fill_between(
+            range(len(mean)), mean - std, mean + std, alpha=0.2
+        )  # Use `ax.fill_between`
+
+    ax.legend()
+    ax.set_title("Simple regrets")
+    ax.set_xlabel("Iteration")
+    ax.set_ylabel("Best value")
 
     if save_path is not None:
-        plt.savefig(save_path, dpi=300, bbox_inches="tight")
+        fig.savefig(save_path, dpi=300, bbox_inches="tight")  # Use `fig.savefig`
 
-    plt.show()
+    plt.show()  # Show the figure
 
 
 if __name__ == "__main__":
