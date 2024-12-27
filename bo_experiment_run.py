@@ -40,12 +40,26 @@ class F1Toy:
     def minimum(self):
         return -0.5
 
+    @property
+    def minimizer(self):
+        return 0.2356
+
+    @property
+    def alpha(self):
+        return 1.0
+
     def noise_func(self, X):
         X = 20 * X - 10  # [0, 1] -> [-10, 10]
         return 1 / (1 + np.exp(-X)) / 10
 
+    def func(self, X):
+        return 0.5 * np.sin(X * 20)
+
+    def mv(self, X):
+        return self.func(X).squeeze() + (self.alpha * self.noise_func(X).squeeze())
+
     def __call__(self, X):
-        target = 0.5 * np.sin(X * 20)
+        target = self.func(X)
         if self.add_noise:
             rng = np.random.RandomState(1)
             target += rng.normal(
@@ -173,32 +187,91 @@ def run_bo_experiments(experiment_case):
     return bo_results
 
 
-def plot_results(bo_results, experiment_case, save_path=None):
+def plot_results(bo_results, experiment_case, true_f, save_path=None):
     import matplotlib.pyplot as plt
     import numpy as np
 
+    true_opt = true_f.minimum
     n_init = experiment_case["n_init"]
 
-    fig, ax = plt.subplots(figsize=(8, 6))  # Create a figure and axis
+    fig, axes = plt.subplots(1, 3, figsize=(15, 5), constrained_layout=True)
+    axes = axes.flatten()  # Flatten the axes for easy indexing
 
+    # looping each method
     for method_name, results in bo_results.items():
-        cum_best_list = []
-        for result in results:
-            cum_best = np.minimum.accumulate(result["y"])
-            cum_best_list.append(cum_best)
+        simple_regret_list = []
+        Rt_list = []
+        risk_averse_regrets_list = []
 
-        cum_best_list = np.array(cum_best_list)
-        mean = np.mean(cum_best_list, axis=0)[n_init - 1 :]
-        std = np.std(cum_best_list, axis=0)[n_init - 1 :]
-        ax.plot(mean, label=method_name)  # Use `ax.plot`
-        ax.fill_between(
-            range(len(mean)), mean - std, mean + std, alpha=0.2
+        # looping for repetitions
+        for result in results:
+            # Mv = f(x) + alpha*f_variance(x)
+            # use +alpha*f_variance(x) as lower the better thus higher f_variance(x) is worse
+            MVxstar = true_f(result["X"]) + (
+                true_f.alpha * true_f.noise_func(result["X"]).squeeze()
+            )
+            MVtrue_opt = true_opt + (
+                true_f.alpha * true_f.noise_func(true_f.minimizer).squeeze()
+            )
+
+            # Risk-averse cumulative regret
+            risk_averse_cum_regrets = np.cumsum(MVxstar - MVtrue_opt)
+            Rt_list.append(risk_averse_cum_regrets)
+
+            # Risk-averse regret
+            risk_averse_regrets = np.minimum.accumulate(MVxstar - MVtrue_opt)
+            risk_averse_regrets_list.append(risk_averse_regrets)
+
+            # Simple regret f(x) - true_opt
+            simple_regret = np.minimum.accumulate(
+                true_f.func(result["X"]).squeeze() - true_opt
+            )
+            simple_regret_list.append(simple_regret)
+
+        Rt_list = np.array(Rt_list)
+        Rt_mean = np.mean(Rt_list, axis=0)[n_init - 1 :]
+        Rt_std = np.std(Rt_list, axis=0)[n_init - 1 :]
+        axes[0].plot(Rt_mean, label=method_name)
+        axes[0].fill_between(
+            range(len(Rt_mean)), Rt_mean - Rt_std, Rt_mean + Rt_std, alpha=0.2
+        )
+
+        risk_averse_regrets_list = np.array(risk_averse_regrets_list)
+        risk_averse_regrets_mean = np.mean(risk_averse_regrets_list, axis=0)[
+            n_init - 1 :
+        ]
+        risk_averse_regrets_std = np.std(risk_averse_regrets_list, axis=0)[n_init - 1 :]
+        axes[1].plot(risk_averse_regrets_mean, label=method_name)
+        axes[1].fill_between(
+            range(len(risk_averse_regrets_mean)),
+            risk_averse_regrets_mean - risk_averse_regrets_std,
+            risk_averse_regrets_mean + risk_averse_regrets_std,
+            alpha=0.2,
+        )
+
+        simple_regret_list = np.array(simple_regret_list)
+        simple_regret_mean = np.mean(simple_regret_list, axis=0)[n_init - 1 :]
+        simple_regret_std = np.std(simple_regret_list, axis=0)[n_init - 1 :]
+        axes[2].plot(simple_regret_mean, label=method_name)  # Use `ax.plot`
+        axes[2].fill_between(
+            range(len(simple_regret_mean)),
+            simple_regret_mean - simple_regret_std,
+            simple_regret_mean + simple_regret_std,
+            alpha=0.2,
         )  # Use `ax.fill_between`
 
-    ax.legend()
-    ax.set_title("Simple regrets")
-    ax.set_xlabel("Iteration")
-    ax.set_ylabel("Best value")
+    axes[0].legend()
+    axes[0].set_title("Risk-averse cumulative regrets")
+    axes[0].set_xlabel("Iteration")
+    axes[0].set_ylabel("Rt")
+
+    axes[1].set_title("Risk-averse regrets")
+    axes[1].set_xlabel("Iteration")
+    axes[1].set_ylabel("Risk-averse Regrets")
+
+    axes[2].set_title("Simple regrets")
+    axes[2].set_xlabel("Iteration")
+    axes[2].set_ylabel("Regrets")
 
     if save_path is not None:
         fig.savefig(save_path, dpi=300, bbox_inches="tight")  # Use `fig.savefig`
@@ -230,4 +303,5 @@ if __name__ == "__main__":
         experiment_case = json.load(f)
 
     bo_results = run_bo_experiments(experiment_case)
-    plot_results(bo_results, experiment_case, save_path=args.output)
+    true_f = benchmark_f_dict[experiment_case["benchmark_f"]]
+    plot_results(bo_results, experiment_case, true_f, save_path=args.output)
