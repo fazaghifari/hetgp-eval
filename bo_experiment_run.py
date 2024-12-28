@@ -42,7 +42,7 @@ class F1Toy:
 
     @property
     def minimizer(self):
-        return 0.2356
+        return 0.23562
 
     @property
     def alpha(self):
@@ -207,15 +207,14 @@ def plot_results(bo_results, experiment_case, true_f, save_path=None):
         for result in results:
             # Mv = f(x) + alpha*f_variance(x)
             # use +alpha*f_variance(x) as lower the better thus higher f_variance(x) is worse
-            MVxstar = true_f(result["X"]) + (
-                true_f.alpha * true_f.noise_func(result["X"]).squeeze()
-            )
+            MVxstar = true_f.mv(result["X"]).squeeze()
             MVtrue_opt = true_opt + (
                 true_f.alpha * true_f.noise_func(true_f.minimizer).squeeze()
             )
 
             # Risk-averse cumulative regret
             risk_averse_cum_regrets = np.cumsum(MVxstar - MVtrue_opt)
+
             Rt_list.append(risk_averse_cum_regrets)
 
             # Risk-averse regret
