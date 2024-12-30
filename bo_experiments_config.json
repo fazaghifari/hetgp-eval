@@ -4,6 +4,7 @@
     "n_iters": 100,
     "n_repeats": 10,
     "verbose": true,
+    "use_xT": true,
     "methods": {
         "KSMLHGP-AEI": {
             "model": "KSMLHGP",

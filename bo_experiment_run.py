@@ -167,6 +167,7 @@ def run_bo_experiments(experiment_case):
                 acquisition_function=acq_f,
                 true_function=benchmark_f,
                 acq_optimizer=bo_optimizer,
+                return_xT=experiment_case["use_xT"],
                 verbose=experiment_case["verbose"],
             )
 
@@ -207,7 +208,11 @@ def plot_results(bo_results, experiment_case, true_f, save_path=None):
         for result in results:
             # Mv = f(x) + alpha*f_variance(x)
             # use +alpha*f_variance(x) as lower the better thus higher f_variance(x) is worse
-            MVxstar = true_f.mv(result["X"]).squeeze()
+            if experiment_case["use_xT"]:
+                MVxstar = true_f.mv(result["xT"]).squeeze()
+            else:
+                MVxstar = true_f.mv(result["X"]).squeeze()
+
             MVtrue_opt = true_opt + (
                 true_f.alpha * true_f.noise_func(true_f.minimizer).squeeze()
             )
@@ -222,6 +227,11 @@ def plot_results(bo_results, experiment_case, true_f, save_path=None):
             risk_averse_regrets_list.append(risk_averse_regrets)
 
             # Simple regret f(x) - true_opt
+
+            if experiment_case["use_xT"]:
+                simple_regret = np.minimum.accumulate(
+                    true_f.func(result["xT"]).squeeze() - true_opt
+                )
             simple_regret = np.minimum.accumulate(
                 true_f.func(result["X"]).squeeze() - true_opt
             )
