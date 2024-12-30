@@ -89,7 +89,7 @@ class BayesianOptimizer:
     def _log_initial_observations(self, observations):
         print("Initial observations:")
         print(observations)
-        best_idx = np.argmax(observations["y"])
+        best_idx = np.argmin(observations["y"])
         print(
             "Best observation - X:",
             observations["X"][best_idx],
