@@ -50,7 +50,7 @@ class F1Toy:
 
     def noise_func(self, X):
         X = 20 * X - 10  # [0, 1] -> [-10, 10]
-        return 1 / (1 + np.exp(-X)) / 10
+        return 1 / (1 + np.exp(-X))
 
     def func(self, X):
         return 0.5 * np.sin(X * 20)
