@@ -40,14 +40,16 @@ class BayesianOptimizer:
         observations["y"] = np.append(observations["y"], new_y)
         return observations
 
-    def add_xT_to_observations(self, observations, iteration):
+    def add_xT_to_observations(self, observations, init=False):
         xTscore = self.xTscore(self.model, observations["X"])
         xT = observations["X"][np.argmin(xTscore)]
 
-        if iteration == 0:
+        if init:
             observations["xT"] = np.full_like(observations["X"], xT)
         else:
             observations["xT"] = np.vstack((observations["xT"], xT.reshape(1, -1)))
+
+        return observations
 
     def optimize(self, observations, n_iter):
         current_observations = copy.deepcopy(observations)
@@ -55,19 +57,24 @@ class BayesianOptimizer:
         if self.verbose:
             self._log_initial_observations(current_observations)
 
+        if self.return_xT:
+            self.model.fit(observations["X"], observations["y"])
+            current_observations = self.add_xT_to_observations(
+                current_observations, init=True
+            )
+
         for iteration in range(n_iter):
             new_x, acq_val = self.step(current_observations)
             new_y = self.true_function(new_x)
-
-            if iteration == 0 and self.return_xT:
-                self.add_xT_to_observations(current_observations, iteration)
 
             current_observations = self.add_point_to_observations(
                 new_x, new_y, current_observations
             )
 
             if self.return_xT:
-                self.add_xT_to_observations(current_observations, iteration)
+                current_observations = self.add_xT_to_observations(
+                    current_observations, init=False
+                )
 
             if self.verbose:
                 self._log_iteration_details(
@@ -247,7 +254,7 @@ class RAHBOAcqFunction:
         self.model = model
 
     def __call__(self, x_cand) -> Any:
-        # Makartova et al Risk-averse Heteroscedastic Bayesian Optimization Neurips 2021
+        # Makarova et al Risk-averse Heteroscedastic Bayesian Optimization Neurips 2021
         mean_pred, stds_pred = self.model.predict(x_cand, return_std="multi")
         std_al, std_ep = stds_pred
         rahbo = -mean_pred + (self.beta * std_ep) - (self.alpha * (std_al**2))
