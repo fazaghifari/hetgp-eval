@@ -7,6 +7,9 @@ from sklearn.gaussian_process import GaussianProcessRegressor
 
 
 class BayesianOptimizer:
+    """
+    BayesianOptimizer class for MINIMIZATION settings
+    """
     def __init__(
         self,
         model,
@@ -245,6 +248,11 @@ class ANPEIAcqFunction:
 
 
 class RAHBOAcqFunction:
+    """
+    Makarova et al Risk-averse Heteroscedastic Bayesian Optimization Neurips 2021
+    Modified to be LCB for minimization settings
+    this is RAHBO with negative LCB thus maximize it
+    """
     def __init__(self, alpha=1, beta=0.5) -> None:
         self.alpha = alpha
         self.beta = beta
@@ -254,15 +262,19 @@ class RAHBOAcqFunction:
         self.model = model
 
     def __call__(self, x_cand) -> Any:
-        # Makarova et al Risk-averse Heteroscedastic Bayesian Optimization Neurips 2021
+
         mean_pred, stds_pred = self.model.predict(x_cand, return_std="multi")
         std_al, std_ep = stds_pred
-        rahbo = -mean_pred + (self.beta * std_ep) - (self.alpha * (std_al**2))
+        rahbo = -(mean_pred - (self.beta * std_ep)) - (self.alpha * (std_al**2))
         return rahbo
 
 
 class LCBAcqFunction:
-    "Note this is negative LCB thus maximize it!"
+    """
+    Note this is negative LCB thus maximize it!
+    Why LCB? because we are doing minimization in which Lower CB will give
+    more exploration towards lower value (than the mean)
+    """
 
     def __init__(self, beta=1) -> None:
         self.beta = beta
@@ -273,5 +285,5 @@ class LCBAcqFunction:
 
     def __call__(self, x_cand) -> Any:
         mean_pred, std_pred = self.model.predict(x_cand, return_std=True)
-        neg_lcb = -mean_pred - self.beta * std_pred
+        neg_lcb = - (mean_pred - (self.beta * std_pred))
         return neg_lcb
