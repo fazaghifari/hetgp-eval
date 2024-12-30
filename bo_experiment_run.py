@@ -120,7 +120,7 @@ def build_acq_f(acq_f_params):
 
 def build_acq_opt(acq_optimizer_name, bounds):
     if acq_optimizer_name == "CMAES":
-        bo_optimizer = CMAESAcqOptimizer(n_initial=100, bounds=bounds)
+        bo_optimizer = CMAESAcqOptimizer(n_initial=1000, bounds=bounds)
     elif acq_optimizer_name == "Random":
         bo_optimizer = RandomAcqOptimizer(n_candidates=10000, bounds=bounds)
     return bo_optimizer
@@ -217,12 +217,14 @@ def plot_results(bo_results, experiment_case, true_f, save_path=None):
                 MVxstar = true_f.mv(result["xT"]).squeeze()
             else:
                 MVxstar = true_f.mv(result["X"]).squeeze()
+                
             MVtrue_opt = true_opt + (
                 true_f.alpha * true_f.noise_func(true_f.minimizer).squeeze()
             )
 
             # Risk-averse cumulative regret
-            risk_averse_cum_regrets = np.cumsum(MVxstar - MVtrue_opt)
+            MVxstar_Rt = true_f.mv(result["X"]).squeeze() # always use xt instead of xT
+            risk_averse_cum_regrets = np.cumsum(MVxstar_Rt - MVtrue_opt)
             Rt_list.append(risk_averse_cum_regrets)
 
             # Risk-averse regret
