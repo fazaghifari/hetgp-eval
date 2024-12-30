@@ -18,8 +18,8 @@
             "acq_f": {
                 "name": "RAHBO",
                 "params": {
-                    "alpha": 1,
-                    "beta": 0.5
+                    "alpha": 2,
+                    "beta": 1
                 }
             },
             "bo_optimizer": "CMAES"
@@ -29,7 +29,7 @@
             "acq_f": {
                 "name": "ANPEI",
                 "params": {
-                    "alpha": 1
+                    "alpha": 2
                 }
             },
             "bo_optimizer": "CMAES"
@@ -39,7 +39,7 @@
             "acq_f": {
                 "name": "LCB",
                 "params": {
-                    "beta": 0.5
+                    "beta": 1
                 }
             },
             "bo_optimizer": "CMAES"
