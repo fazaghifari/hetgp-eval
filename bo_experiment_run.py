@@ -142,7 +142,8 @@ def run_bo_experiments(experiment_case):
         init_dataset = {"X": x_init, "y": y_init}
         init_datasets.append(init_dataset)
 
-    bo_results = {}
+    bo_results = {"experiment_config": experiment_case, "results": {}}
+
     for method_name in experiment_case["methods"]:
         running_method = experiment_case["methods"][method_name]
         print("=====================================")
@@ -183,14 +184,18 @@ def run_bo_experiments(experiment_case):
                 )
 
             results_repeat.append(result)
-        bo_results[method_name] = results_repeat
+        bo_results["results"][method_name] = results_repeat
 
     return bo_results
 
 
-def plot_results(bo_results, experiment_case, true_f, save_path=None):
+def plot_results(bo_results, true_f, save_path=None):
     import matplotlib.pyplot as plt
     import numpy as np
+
+    experiment_case = bo_results["experiment_config"]
+    print("Plotting results...")
+    print(f"Experiment config: {experiment_case}")
 
     true_opt = true_f.minimum
     n_init = experiment_case["n_init"]
@@ -199,7 +204,7 @@ def plot_results(bo_results, experiment_case, true_f, save_path=None):
     axes = axes.flatten()  # Flatten the axes for easy indexing
 
     # looping each method
-    for method_name, results in bo_results.items():
+    for method_name, results in bo_results["results"].items():
         simple_regret_list = []
         simple_cum_regret_list = []
         risk_averse_cum_regret_list = []
@@ -211,7 +216,7 @@ def plot_results(bo_results, experiment_case, true_f, save_path=None):
             # use +alpha*f_variance(x) as lower the better thus higher f_variance(x) is worse
 
             MVxstar = true_f.mv(result["X"]).squeeze()
-                
+
             MVtrue_opt = true_opt + (
                 true_f.alpha * true_f.noise_func(true_f.minimizer).squeeze()
             )
@@ -232,21 +237,27 @@ def plot_results(bo_results, experiment_case, true_f, save_path=None):
             simple_cum_regret = np.cumsum(simple_regret)
             simple_cum_regret_list.append(simple_cum_regret)
 
-
         risk_averse_cum_regret_list = np.array(risk_averse_cum_regret_list)
-        risk_averse_cum_regret_mean = np.mean(risk_averse_cum_regret_list, axis=0)[n_init - 1 :]
-        risk_averse_cum_regret_std = np.std(risk_averse_cum_regret_list, axis=0)[n_init - 1 :]
-        risk_averse_cum_regret_se = risk_averse_cum_regret_std / np.sqrt(risk_averse_cum_regret_list.shape[0])  # Standard error
+        risk_averse_cum_regret_mean = np.mean(risk_averse_cum_regret_list, axis=0)[
+            n_init - 1 :
+        ]
+        risk_averse_cum_regret_std = np.std(risk_averse_cum_regret_list, axis=0)[
+            n_init - 1 :
+        ]
+        risk_averse_cum_regret_se = risk_averse_cum_regret_std / np.sqrt(
+            risk_averse_cum_regret_list.shape[0]
+        )  # Standard error
 
         axes[0].plot(risk_averse_cum_regret_mean, label=method_name)
         axes[0].fill_between(
-            range(len(risk_averse_cum_regret_mean)), risk_averse_cum_regret_mean - risk_averse_cum_regret_se, risk_averse_cum_regret_mean + risk_averse_cum_regret_se, alpha=0.2
+            range(len(risk_averse_cum_regret_mean)),
+            risk_averse_cum_regret_mean - risk_averse_cum_regret_se,
+            risk_averse_cum_regret_mean + risk_averse_cum_regret_se,
+            alpha=0.2,
         )
 
         risk_averse_regret_list = np.array(risk_averse_regret_list)
-        risk_averse_regret_mean = np.mean(risk_averse_regret_list, axis=0)[
-            n_init - 1 :
-        ]
+        risk_averse_regret_mean = np.mean(risk_averse_regret_list, axis=0)[n_init - 1 :]
         risk_averse_regret_std = np.std(risk_averse_regret_list, axis=0)[n_init - 1 :]
         risk_averse_regret_se = risk_averse_regret_std / np.sqrt(
             risk_averse_regret_list.shape[0]
@@ -277,7 +288,8 @@ def plot_results(bo_results, experiment_case, true_f, save_path=None):
         simple_cum_regret_mean = np.mean(simple_cum_regret_list, axis=0)[n_init - 1 :]
         simple_cum_regret_std = np.std(simple_cum_regret_list, axis=0)[n_init - 1 :]
         simple_cum_regret_se = simple_cum_regret_std / np.sqrt(
-            simple_cum_regret_list.shape[0])
+            simple_cum_regret_list.shape[0]
+        )
         axes[3].plot(simple_cum_regret_mean, label=method_name)
         axes[3].fill_between(
             range(len(simple_cum_regret_mean)),
@@ -333,7 +345,6 @@ if __name__ == "__main__":
         help="Path to save the output pickle file (default: None).",
     )
 
-
     args = parser.parse_args()
 
     with open(args.config, "r") as f:
@@ -348,4 +359,4 @@ if __name__ == "__main__":
             bo_results = pickle.load(f)
 
     true_f = benchmark_f_dict[experiment_case["benchmark_f"]]
-    plot_results(bo_results, experiment_case, true_f, save_path=args.output)
+    plot_results(bo_results, true_f, save_path=args.output)
