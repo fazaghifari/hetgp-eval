@@ -4,7 +4,6 @@
     "n_iters": 100,
     "n_repeats": 10,
     "verbose": true,
-    "use_xT": true,
     "methods": {
         "KSMLHGP-AEI": {
             "model": "KSMLHGP",
@@ -19,7 +18,7 @@
                 "name": "RAHBO",
                 "params": {
                     "alpha": 2,
-                    "beta": 1
+                    "beta": 1.96
                 }
             },
             "bo_optimizer": "CMAES"
@@ -39,7 +38,7 @@
             "acq_f": {
                 "name": "LCB",
                 "params": {
-                    "beta": 1
+                    "beta": 1.96
                 }
             },
             "bo_optimizer": "CMAES"

@@ -1,4 +1,5 @@
 import numpy as np
+import pickle
 
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel, WhiteKernel
 from sklearn.gaussian_process import GaussianProcessRegressor
@@ -120,7 +121,7 @@ def build_acq_f(acq_f_params):
 
 def build_acq_opt(acq_optimizer_name, bounds):
     if acq_optimizer_name == "CMAES":
-        bo_optimizer = CMAESAcqOptimizer(n_initial=1000, bounds=bounds)
+        bo_optimizer = CMAESAcqOptimizer(n_initial=10000, bounds=bounds)
     elif acq_optimizer_name == "Random":
         bo_optimizer = RandomAcqOptimizer(n_candidates=10000, bounds=bounds)
     return bo_optimizer
@@ -167,7 +168,6 @@ def run_bo_experiments(experiment_case):
                 acquisition_function=acq_f,
                 true_function=benchmark_f,
                 acq_optimizer=bo_optimizer,
-                return_xT=experiment_case["use_xT"],
                 verbose=experiment_case["verbose"],
             )
 
@@ -189,86 +189,74 @@ def run_bo_experiments(experiment_case):
 
 
 def plot_results(bo_results, experiment_case, true_f, save_path=None):
-    """
-    Note:
-    if we use xT, we dont use cummin as this is for online setting. Meaning
-    at T we will return this xT not at the end of total iterations
-    """
     import matplotlib.pyplot as plt
     import numpy as np
 
     true_opt = true_f.minimum
     n_init = experiment_case["n_init"]
 
-    fig, axes = plt.subplots(1, 3, figsize=(15, 5), constrained_layout=True)
+    fig, axes = plt.subplots(1, 4, figsize=(16, 3), constrained_layout=True)
     axes = axes.flatten()  # Flatten the axes for easy indexing
 
     # looping each method
     for method_name, results in bo_results.items():
         simple_regret_list = []
-        Rt_list = []
-        risk_averse_regrets_list = []
+        simple_cum_regret_list = []
+        risk_averse_cum_regret_list = []
+        risk_averse_regret_list = []
 
         # looping for repetitions
         for result in results:
             # Mv = f(x) + alpha*f_variance(x)
             # use +alpha*f_variance(x) as lower the better thus higher f_variance(x) is worse
-            if experiment_case["use_xT"]:
-                MVxstar = true_f.mv(result["xT"]).squeeze()
-            else:
-                MVxstar = true_f.mv(result["X"]).squeeze()
+
+            MVxstar = true_f.mv(result["X"]).squeeze()
                 
             MVtrue_opt = true_opt + (
                 true_f.alpha * true_f.noise_func(true_f.minimizer).squeeze()
             )
 
-            # Risk-averse cumulative regret
-            MVxstar_Rt = true_f.mv(result["X"]).squeeze() # always use xt instead of xT
-            risk_averse_cum_regrets = np.cumsum(MVxstar_Rt - MVtrue_opt)
-            Rt_list.append(risk_averse_cum_regrets)
-
             # Risk-averse regret
-            if experiment_case["use_xT"]:
-                risk_averse_regrets = MVxstar - MVtrue_opt
-            else:
-                # use cummin if not using xT
-                risk_averse_regrets = np.minimum.accumulate(MVxstar - MVtrue_opt)
-            risk_averse_regrets_list.append(risk_averse_regrets)
+            risk_averse_regret = MVxstar - MVtrue_opt
+            risk_averse_regret_list.append(risk_averse_regret)
+
+            # Risk-averse cumulative regret
+            risk_averse_cum_regret = np.cumsum(risk_averse_regret)
+            risk_averse_cum_regret_list.append(risk_averse_cum_regret)
 
             # Simple regret f(x) - true_opt
-            if experiment_case["use_xT"]:
-                simple_regret = true_f.func(result["xT"]).squeeze() - true_opt
-            else:
-                # use cummin if not using xT
-                simple_regret = np.minimum.accumulate(
-                    true_f.func(result["X"]).squeeze() - true_opt
-                )
+            simple_regret = true_f.func(result["X"]).squeeze() - true_opt
             simple_regret_list.append(simple_regret)
 
-        Rt_list = np.array(Rt_list)
-        Rt_mean = np.mean(Rt_list, axis=0)[n_init - 1 :]
-        Rt_std = np.std(Rt_list, axis=0)[n_init - 1 :]
-        Rt_se = Rt_std / np.sqrt(Rt_list.shape[0])  # Standard error
+            # Simple cumulative regret f(x) - true_opt
+            simple_cum_regret = np.cumsum(simple_regret)
+            simple_cum_regret_list.append(simple_cum_regret)
 
-        axes[0].plot(Rt_mean, label=method_name)
+
+        risk_averse_cum_regret_list = np.array(risk_averse_cum_regret_list)
+        risk_averse_cum_regret_mean = np.mean(risk_averse_cum_regret_list, axis=0)[n_init - 1 :]
+        risk_averse_cum_regret_std = np.std(risk_averse_cum_regret_list, axis=0)[n_init - 1 :]
+        risk_averse_cum_regret_se = risk_averse_cum_regret_std / np.sqrt(risk_averse_cum_regret_list.shape[0])  # Standard error
+
+        axes[0].plot(risk_averse_cum_regret_mean, label=method_name)
         axes[0].fill_between(
-            range(len(Rt_mean)), Rt_mean - Rt_se, Rt_mean + Rt_se, alpha=0.2
+            range(len(risk_averse_cum_regret_mean)), risk_averse_cum_regret_mean - risk_averse_cum_regret_se, risk_averse_cum_regret_mean + risk_averse_cum_regret_se, alpha=0.2
         )
 
-        risk_averse_regrets_list = np.array(risk_averse_regrets_list)
-        risk_averse_regrets_mean = np.mean(risk_averse_regrets_list, axis=0)[
+        risk_averse_regret_list = np.array(risk_averse_regret_list)
+        risk_averse_regret_mean = np.mean(risk_averse_regret_list, axis=0)[
             n_init - 1 :
         ]
-        risk_averse_regrets_std = np.std(risk_averse_regrets_list, axis=0)[n_init - 1 :]
-        risk_averse_regrets_se = risk_averse_regrets_std / np.sqrt(
-            risk_averse_regrets_list.shape[0]
+        risk_averse_regret_std = np.std(risk_averse_regret_list, axis=0)[n_init - 1 :]
+        risk_averse_regret_se = risk_averse_regret_std / np.sqrt(
+            risk_averse_regret_list.shape[0]
         )
 
-        axes[1].plot(risk_averse_regrets_mean, label=method_name)
+        axes[1].plot(risk_averse_regret_mean, label=method_name)
         axes[1].fill_between(
-            range(len(risk_averse_regrets_mean)),
-            risk_averse_regrets_mean - risk_averse_regrets_se,
-            risk_averse_regrets_mean + risk_averse_regrets_se,
+            range(len(risk_averse_regret_mean)),
+            risk_averse_regret_mean - risk_averse_regret_se,
+            risk_averse_regret_mean + risk_averse_regret_se,
             alpha=0.2,
         )
 
@@ -285,18 +273,35 @@ def plot_results(bo_results, experiment_case, true_f, save_path=None):
             alpha=0.2,
         )  # Use `ax.fill_between`
 
+        simple_cum_regret_list = np.array(simple_cum_regret_list)
+        simple_cum_regret_mean = np.mean(simple_cum_regret_list, axis=0)[n_init - 1 :]
+        simple_cum_regret_std = np.std(simple_cum_regret_list, axis=0)[n_init - 1 :]
+        simple_cum_regret_se = simple_cum_regret_std / np.sqrt(
+            simple_cum_regret_list.shape[0])
+        axes[3].plot(simple_cum_regret_mean, label=method_name)
+        axes[3].fill_between(
+            range(len(simple_cum_regret_mean)),
+            simple_cum_regret_mean - simple_cum_regret_se,
+            simple_cum_regret_mean + simple_cum_regret_se,
+            alpha=0.2,
+        )
+
     axes[0].legend()
-    axes[0].set_title("Risk-averse cumulative regrets")
+    axes[0].set_title("Risk-averse cumulative regret")
     axes[0].set_xlabel("Iteration")
     axes[0].set_ylabel("Rt (mean ± SE)")
 
-    axes[1].set_title("Risk-averse regrets")
+    axes[1].set_title("Risk-averse regret")
     axes[1].set_xlabel("Iteration")
-    axes[1].set_ylabel("Risk-averse Regrets (mean ± SE)")
+    axes[1].set_ylabel("$MV(xt)-MV(x_*)$ (mean ± SE)")
 
-    axes[2].set_title("Simple regrets")
+    axes[2].set_title("Simple regret")
     axes[2].set_xlabel("Iteration")
-    axes[2].set_ylabel("Regrets (mean ± SE)")
+    axes[2].set_ylabel("$f(xt)-f(x_*)$ (mean ± SE)")
+
+    axes[3].set_title("Simple cumulative regret")
+    axes[3].set_xlabel("Iteration")
+    axes[3].set_ylabel("cumm regret (mean ± SE)")
 
     if save_path is not None:
         fig.savefig(save_path, dpi=300, bbox_inches="tight")  # Use `fig.savefig`
@@ -321,12 +326,26 @@ if __name__ == "__main__":
         default="bo_results.png",
         help="Path to save the output PNG file (default: bo_results.png).",
     )
+    parser.add_argument(
+        "--result_file",
+        type=str,
+        default=None,
+        help="Path to save the output pickle file (default: None).",
+    )
+
 
     args = parser.parse_args()
 
     with open(args.config, "r") as f:
         experiment_case = json.load(f)
 
-    bo_results = run_bo_experiments(experiment_case)
+    if args.result_file is None:
+        bo_results = run_bo_experiments(experiment_case)
+        with open("bo_results.pkl", "wb") as f:
+            pickle.dump(bo_results, f)
+    else:
+        with open(args.result_file, "rb") as f:
+            bo_results = pickle.load(f)
+
     true_f = benchmark_f_dict[experiment_case["benchmark_f"]]
     plot_results(bo_results, experiment_case, true_f, save_path=args.output)

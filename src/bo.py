@@ -17,16 +17,12 @@ class BayesianOptimizer:
         true_function,
         acq_optimizer,
         verbose=False,
-        return_xT=False,
-        xTscore=None,
     ):
         self.model = model
         self.acquisition_function = acquisition_function
         self.true_function = true_function
         self.acq_optimizer = acq_optimizer
         self.verbose = verbose
-        self.return_xT = return_xT
-        self.xTscore = xTscore or RiskAversePointUCB()
 
     def step(self, observations):
         self.model.fit(observations["X"], observations["y"])
@@ -43,28 +39,11 @@ class BayesianOptimizer:
         observations["y"] = np.append(observations["y"], new_y)
         return observations
 
-    def add_xT_to_observations(self, observations, init=False):
-        xTscore = self.xTscore(self.model, observations["X"])
-        xT = observations["X"][np.argmin(xTscore)]
-
-        if init:
-            observations["xT"] = np.full_like(observations["X"], xT)
-        else:
-            observations["xT"] = np.vstack((observations["xT"], xT.reshape(1, -1)))
-
-        return observations
-
     def optimize(self, observations, n_iter):
         current_observations = copy.deepcopy(observations)
 
         if self.verbose:
             self._log_initial_observations(current_observations)
-
-        if self.return_xT:
-            self.model.fit(observations["X"], observations["y"])
-            current_observations = self.add_xT_to_observations(
-                current_observations, init=True
-            )
 
         for iteration in range(n_iter):
             new_x, acq_val = self.step(current_observations)
@@ -74,14 +53,9 @@ class BayesianOptimizer:
                 new_x, new_y, current_observations
             )
 
-            if self.return_xT:
-                current_observations = self.add_xT_to_observations(
-                    current_observations, init=False
-                )
-
             if self.verbose:
                 self._log_iteration_details(
-                    iteration, new_x, new_y, acq_val, current_observations
+                    iteration, new_x, new_y, acq_val
                 )
 
         return current_observations
@@ -96,36 +70,11 @@ class BayesianOptimizer:
             "y:",
             observations["y"][best_idx],
         )
-        print("return_xT (risk averse point):", self.return_xT)
         print("Starting optimization...")
 
-    def _log_iteration_details(self, iteration, new_x, new_y, acq_val, observations):
+    def _log_iteration_details(self, iteration, new_x, new_y, acq_val):
         text = f"Iteration {iteration + 1}: x={new_x}, y={new_y}, acq={acq_val}"
-        if self.return_xT:
-            xT = observations["xT"][iteration]
-            text += f", xT={xT}"
         print(text)
-
-
-class RiskAversePointUCB:
-    """
-    Get the risk averse score, here uisng UCB as for minimization
-    UCB is risk averse, as the upper bound can be seen as the worst case scenario
-    """
-
-    def __init__(self, beta=1.96) -> None:
-        self.beta = beta
-
-    def __call__(self, model, X):
-        if isinstance(model, GaussianProcessRegressor):
-            # if model is sklearn GPR
-            mean_pred, std_pred = model.predict(X, return_std=True)
-            return mean_pred + self.beta * std_pred
-        else:
-            # if model is Heterogenous GPs
-            mean_pred, stds_pred = model.predict(X, return_std="multi")
-            _, std_ep = stds_pred
-            return mean_pred + self.beta * std_ep
 
 
 class CMAESAcqOptimizer:
