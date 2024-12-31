@@ -67,6 +67,8 @@ class MLHGP():
             if i == (self.max_iter-1):
                 self.model.alpha= noise_x_dep
                 self.model.fit(X, y)
+                
+        self.model.alpha= 1e-10
             
     
     def predict(self, X, return_std=None):

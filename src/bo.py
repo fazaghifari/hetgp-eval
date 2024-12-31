@@ -10,6 +10,7 @@ class BayesianOptimizer:
     """
     BayesianOptimizer class for MINIMIZATION settings
     """
+
     def __init__(
         self,
         model,
@@ -54,9 +55,7 @@ class BayesianOptimizer:
             )
 
             if self.verbose:
-                self._log_iteration_details(
-                    iteration, new_x, new_y, acq_val
-                )
+                self._log_iteration_details(iteration, new_x, new_y, acq_val)
 
         return current_observations
 
@@ -170,13 +169,16 @@ class AugmentedEIAcqFunction:
 
         return ei + augmentation
 
+
 class EIAcqFunction:
     def __init__(self) -> None:
         pass
+
     def initialize_acquisition_function(self, model, observations):
         # run this everytime model is updated
         self.model = model
         self.eta = observations["y"].min()
+
     def __call__(self, x_cand) -> Any:
         mean_pred, stds_pred = self.model.predict(x_cand, return_std="multi")
         _, std_ep = stds_pred
@@ -185,6 +187,7 @@ class EIAcqFunction:
         # Expected improvement (EI) calculation
         ei = (self.eta - mean_pred) * cdf + np.square(std_ep) * pdf
         return ei
+
 
 class ANPEIAcqFunction:
     def __init__(self, alpha=1) -> None:
@@ -217,6 +220,7 @@ class RAHBOAcqFunction:
     Modified to be LCB for minimization settings
     this is RAHBO with negative LCB thus maximize it
     """
+
     def __init__(self, alpha=1, beta=0.5) -> None:
         self.alpha = alpha
         self.beta = beta
@@ -226,7 +230,6 @@ class RAHBOAcqFunction:
         self.model = model
 
     def __call__(self, x_cand) -> Any:
-
         mean_pred, stds_pred = self.model.predict(x_cand, return_std="multi")
         std_al, std_ep = stds_pred
         rahbo = -(mean_pred - (self.beta * std_ep)) - (self.alpha * (std_al**2))
@@ -249,5 +252,5 @@ class LCBAcqFunction:
 
     def __call__(self, x_cand) -> Any:
         mean_pred, std_pred = self.model.predict(x_cand, return_std=True)
-        neg_lcb = - (mean_pred - (self.beta * std_pred))
+        neg_lcb = -(mean_pred - (self.beta * std_pred))
         return neg_lcb

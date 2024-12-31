@@ -106,6 +106,8 @@ class KSHGP():
                 self.model.alpha= noise_x_dep + 1e-7
                 self.model.kernel = ConstantKernel(1.0) * RBF(length_scale=1e-1, length_scale_bounds=lenscale_bounds)
                 self.model.fit(X, y)
+                
+        self.model.alpha= 1e-10
     
 
     def predict(self, X, return_std=None):

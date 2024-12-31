@@ -18,7 +18,7 @@
                 "name": "RAHBO",
                 "params": {
                     "alpha": 2,
-                    "beta": 1.96
+                    "beta": 0.2
                 }
             },
             "bo_optimizer": "CMAES"
@@ -38,7 +38,7 @@
             "acq_f": {
                 "name": "LCB",
                 "params": {
-                    "beta": 1.96
+                    "beta": 0.2
                 }
             },
             "bo_optimizer": "CMAES"
