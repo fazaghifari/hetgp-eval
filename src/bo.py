@@ -180,12 +180,11 @@ class EIAcqFunction:
         self.eta = observations["y"].min()
 
     def __call__(self, x_cand) -> Any:
-        mean_pred, stds_pred = self.model.predict(x_cand, return_std="multi")
-        _, std_ep = stds_pred
-        cdf = norm.cdf(self.eta, loc=mean_pred, scale=std_ep)
-        pdf = norm.pdf(self.eta, loc=mean_pred, scale=std_ep)
+        mean_pred, std_pred = self.model.predict(x_cand, return_std=True)
+        cdf = norm.cdf(self.eta, loc=mean_pred, scale=std_pred)
+        pdf = norm.pdf(self.eta, loc=mean_pred, scale=std_pred)
         # Expected improvement (EI) calculation
-        ei = (self.eta - mean_pred) * cdf + np.square(std_ep) * pdf
+        ei = (self.eta - mean_pred) * cdf + np.square(std_pred) * pdf
         return ei
 
 
