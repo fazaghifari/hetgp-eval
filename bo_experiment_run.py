@@ -124,7 +124,7 @@ def build_acq_f(acq_f_params):
 
 def build_acq_opt(acq_optimizer_name, bounds):
     if acq_optimizer_name == "CMAES":
-        bo_optimizer = CMAESAcqOptimizer(n_initial=10000, bounds=bounds)
+        bo_optimizer = CMAESAcqOptimizer(n_initial=1000, bounds=bounds)
     elif acq_optimizer_name == "Random":
         bo_optimizer = RandomAcqOptimizer(n_candidates=10000, bounds=bounds)
     return bo_optimizer

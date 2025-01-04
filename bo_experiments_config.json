@@ -2,16 +2,9 @@
     "benchmark_f": "f1_toy",
     "n_init": 3,
     "n_iters": 100,
-    "n_repeats": 10,
+    "n_repeats": 50,
     "verbose": true,
     "methods": {
-        "KSMLHGP-AEI": {
-            "model": "KSMLHGP",
-            "acq_f": {
-                "name": "AugmentedEI"
-            },
-            "bo_optimizer": "CMAES"
-        },
         "KSMLHGP-RAHBO": {
             "model": "KSMLHGP",
             "acq_f": {
@@ -21,17 +14,18 @@
                     "beta": 0.2
                 }
             },
-            "bo_optimizer": "CMAES"
+            "bo_optimizer": "Random"
         },
-        "KSMLHGP-ANPEI": {
-            "model": "KSMLHGP",
+        "MLHGP-RAHBO": {
+            "model": "MLHGP",
             "acq_f": {
-                "name": "ANPEI",
+                "name": "RAHBO",
                 "params": {
-                    "alpha": 2
+                    "alpha": 2,
+                    "beta": 0.2
                 }
             },
-            "bo_optimizer": "CMAES"
+            "bo_optimizer": "Random"
         },
         "GP-LCB": {
             "model": "GP",
@@ -41,7 +35,7 @@
                     "beta": 0.2
                 }
             },
-            "bo_optimizer": "CMAES"
+            "bo_optimizer": "Random"
         }
     }
 }
