@@ -17,6 +17,7 @@ from src.bo import (
     RandomAcqOptimizer,
     RAHBOAcqFunction,
     ANPEIAcqFunction,
+    EIAcqFunction
 )
 
 ## SUPPRESS ALL WARNINGS
@@ -115,6 +116,8 @@ def build_acq_f(acq_f_params):
     elif acq_f_params["name"] == "ANPEI":
         return ANPEIAcqFunction(alpha=acq_f_params["params"]["alpha"])
 
+    elif acq_f_params["name"] == "EI":
+        return EIAcqFunction()
     else:
         raise ValueError(f"Unsupported acquisition function: {acq_f_params['name']}")
 
