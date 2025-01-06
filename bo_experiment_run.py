@@ -1,6 +1,8 @@
 import numpy as np
 import pickle
+import joblib
 
+from tqdm import tqdm
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel, WhiteKernel
 from sklearn.gaussian_process import GaussianProcessRegressor
 from src.mlhgp import MLHGP
@@ -158,7 +160,7 @@ def run_bo_experiments(experiment_case):
 
         results_repeat = []
         # Run BO for each repeat
-        for i in range(n_repeats):
+        for i in tqdm(range(n_repeats)):
             if experiment_case["verbose"]:
                 print(f"Running rep {i+1}/{n_repeats} of {method_name}")
 
@@ -300,6 +302,12 @@ def plot_results(bo_results, true_f, save_path=None):
             simple_cum_regret_mean + simple_cum_regret_se,
             alpha=0.2,
         )
+
+        # Dump results list
+        joblib.dump(risk_averse_cum_regret_list,f"output/risk_averse_cum_regret_list_{method_name}.pkl")
+        joblib.dump(risk_averse_regret_list,f"output/risk_averse_regret_list_{method_name}.pkl")
+        joblib.dump(simple_regret_list,f"output/simple_regret_list_{method_name}.pkl")
+        joblib.dump(simple_cum_regret_list,f"output/simple_cum_regret_list_{method_name}.pkl")
 
     axes[0].legend()
     axes[0].set_title("Risk-averse cumulative regret")

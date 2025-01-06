@@ -2,7 +2,7 @@
     "benchmark_f": "f1_toy",
     "n_init": 3,
     "n_iters": 100,
-    "n_repeats": 50,
+    "n_repeats": 5,
     "verbose": true,
     "methods": {
         "KSMLHGP-RAHBO": {
