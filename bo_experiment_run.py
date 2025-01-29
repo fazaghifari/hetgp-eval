@@ -328,6 +328,8 @@ def plot_results(bo_results, true_f, save_path=None):
 
     if save_path is not None:
         fig.savefig(save_path, dpi=300, bbox_inches="tight")  # Use `fig.savefig`
+    else:
+        fig.savefig("img/RAHBO_experiments.pdf", dpi=300, bbox_inches="tight", format="pdf")
 
     plt.show()  # Show the figure
 
@@ -346,7 +348,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output",
         type=str,
-        default="bo_results.png",
+        default="bo_results_init5.png",
         help="Path to save the output PNG file (default: bo_results.png).",
     )
     parser.add_argument(
@@ -363,7 +365,7 @@ if __name__ == "__main__":
 
     if args.result_file is None:
         bo_results = run_bo_experiments(experiment_case)
-        with open("bo_results.pkl", "wb") as f:
+        with open("bo_results_init5.pkl", "wb") as f:
             pickle.dump(bo_results, f)
     else:
         with open(args.result_file, "rb") as f:
