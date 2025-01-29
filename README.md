@@ -3,8 +3,9 @@ Heteroscedastic GP evaluations
 
 ## Implemented Methods
 * Most Likely Heteroscedastic GP (MLHGP): https://dl.acm.org/doi/10.1145/1273496.1273546
-* Heteroscedastic SVGP: https://gpflow.github.io/GPflow/2.9.1/notebooks/advanced/heteroskedastic.html 
-  * The model seems to be not performing well with low data sample (Idk what's wrong)
+* Improved MLHGP (IMLHGP): https://ieeexplore.ieee.org/document/9103623
+* Nearest-neighbor point estimate HGP: https://arc.aiaa.org/doi/10.2514/6.2021-1589
+* Our KS-HGP
 
 ## installation
 Python 3.9 conda mac install:
