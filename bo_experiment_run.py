@@ -1,6 +1,8 @@
 import numpy as np
 import pickle
+import joblib
 
+from tqdm import tqdm
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel, WhiteKernel
 from sklearn.gaussian_process import GaussianProcessRegressor
 from src.mlhgp import MLHGP
@@ -158,7 +160,7 @@ def run_bo_experiments(experiment_case):
 
         results_repeat = []
         # Run BO for each repeat
-        for i in range(n_repeats):
+        for i in tqdm(range(n_repeats)):
             if experiment_case["verbose"]:
                 print(f"Running rep {i+1}/{n_repeats} of {method_name}")
 
@@ -319,7 +321,10 @@ def plot_results(bo_results, true_f, save_path=None):
         axes[3].set_xlim([n_init, experiment_case["n_iters"] + n_init])
         axes[3].set_xticks(np.arange(n_init, experiment_case["n_iters"] + 1 + n_init, 20))
 
-    #axes[0].legend()
+    axes[0].legend()
+    axes[0].set_title("Risk-averse cumulative regret")
+    axes[0].set_xlabel("Iteration")
+    axes[0].set_ylabel("Rt (mean ± SE)")
 
     #$MV(xt)-MV(x_*)$
     #axes[0].set_xlabel("iteration")
@@ -377,7 +382,7 @@ if __name__ == "__main__":
 
     if args.result_file is None:
         bo_results = run_bo_experiments(experiment_case)
-        with open("bo_results.pkl", "wb") as f:
+        with open("bo_results_init5.pkl", "wb") as f:
             pickle.dump(bo_results, f)
     else:
         with open(args.result_file, "rb") as f:
