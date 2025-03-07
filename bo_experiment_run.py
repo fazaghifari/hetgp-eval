@@ -1,6 +1,7 @@
 import numpy as np
 import pickle
 import joblib
+import time
 
 from tqdm import tqdm
 from sklearn.gaussian_process.kernels import RBF, ConstantKernel, WhiteKernel
@@ -147,7 +148,7 @@ def run_bo_experiments(experiment_case):
         init_dataset = {"X": x_init, "y": y_init}
         init_datasets.append(init_dataset)
 
-    bo_results = {"experiment_config": experiment_case, "results": {}}
+    bo_results = {"experiment_config": experiment_case, "results": {}, "time":{}}
 
     for method_name in experiment_case["methods"]:
         running_method = experiment_case["methods"][method_name]
@@ -159,8 +160,10 @@ def run_bo_experiments(experiment_case):
             print(f"Acquisition optimizer: {running_method['bo_optimizer']}")
 
         results_repeat = []
+        time_repeat = []
         # Run BO for each repeat
         for i in tqdm(range(n_repeats)):
+            t1 = time.process_time()
             if experiment_case["verbose"]:
                 print(f"Running rep {i+1}/{n_repeats} of {method_name}")
 
@@ -187,9 +190,11 @@ def run_bo_experiments(experiment_case):
                 print(
                     f"Best observation - X: {result['X'][best_idx]}, y: {result['y'][best_idx]}"
                 )
-
+            t2 = time.process_time()
             results_repeat.append(result)
+            time_repeat.append(t2-t1)
         bo_results["results"][method_name] = results_repeat
+        bo_results["time"][method_name] = time_repeat
 
     return bo_results
 
@@ -365,7 +370,7 @@ if __name__ == "__main__":
 
     if args.result_file is None:
         bo_results = run_bo_experiments(experiment_case)
-        with open("bo_results_init5.pkl", "wb") as f:
+        with open("bo_5results_init20.pkl", "wb") as f:
             pickle.dump(bo_results, f)
     else:
         with open(args.result_file, "rb") as f:

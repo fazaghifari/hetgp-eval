@@ -1,8 +1,8 @@
 {
     "benchmark_f": "f1_toy",
-    "n_init": 5,
+    "n_init": 20,
     "n_iters": 100,
-    "n_repeats": 15,
+    "n_repeats": 10,
     "verbose": true,
     "methods": {
         "KSMLHGP-RAHBO": {
@@ -16,8 +16,33 @@
             },
             "bo_optimizer": "Random"
         },
+
         "MLHGP-RAHBO": {
             "model": "MLHGP",
+            "acq_f": {
+                "name": "RAHBO",
+                "params": {
+                    "alpha": 2,
+                    "beta": 0.2
+                }
+            },
+            "bo_optimizer": "Random"
+        },
+
+        "IMLHGP-RAHBO": {
+            "model": "IMLHGP",
+            "acq_f": {
+                "name": "RAHBO",
+                "params": {
+                    "alpha": 2,
+                    "beta": 0.2
+                }
+            },
+            "bo_optimizer": "Random"
+        },
+        
+        "NNPEHGP-RAHBO": {
+            "model": "NNPEHGP",
             "acq_f": {
                 "name": "RAHBO",
                 "params": {

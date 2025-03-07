@@ -41,6 +41,19 @@ class KSIMLHGP():
         self.dim = X.shape[1] 
 
         ## Step 1
+        # Check alpha length and X length, only useful for BayesOpt
+        # In BayesOpt, the X is iteratively added, meanwhile IMLHGP add alpha in the previous training.
+        # This couse mismatch in the length of alpha and X
+        if type(self.model.alpha) is np.ndarray:
+            alpha_len = len(self.model.alpha)
+            samp_len = X.shape[0]
+            if alpha_len < samp_len:
+                len_diff = samp_len - alpha_len
+                add_alpha = np.array([1e-10]*len_diff)
+                self.model.alpha = np.concatenate((self.model.alpha, add_alpha))
+            elif alpha_len > samp_len:
+                len_diff = alpha_len - samp_len
+                self.model.alpha = self.model.alpha[:-len_diff]
         # Fit standard homoscedastic GP on the training dataset
         self.model.fit(X, y)
         mean_pred, std_pred =  self.model.predict(X, return_std=True)
@@ -78,7 +91,7 @@ class KSIMLHGP():
         # We need to "retrain", however, since retraining could alter the hyperparams, we fix the hyperparameters
         # except for WhiteNoiseKernel, since we found that fixing all params would result in non-positive semidefinite matrix
         self.model.alpha= noise_x_dep + 1e-7
-        self.model.kernel = ConstantKernel(const_kern, "fixed") * RBF(length_scale=lengthscale_kern, length_scale_bounds="fixed") 
+        # self.model.kernel = ConstantKernel(const_kern, "fixed") * RBF(length_scale=lengthscale_kern, length_scale_bounds="fixed") 
         self.model.fit(X, y)
     
 
