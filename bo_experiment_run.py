@@ -201,6 +201,14 @@ def run_bo_experiments(experiment_case):
 
 def plot_results(bo_results, true_f, save_path=None):
     import matplotlib.pyplot as plt
+    import scienceplots
+    plt.rcParams['text.usetex'] = True
+    plt.style.use('science')
+    params = {'xtick.labelsize':12,
+          'ytick.labelsize':12,
+          'axes.labelsize': 16,
+          'axes.titlesize': 18}
+    plt.rcParams.update(params)
     import numpy as np
 
     experiment_case = bo_results["experiment_config"]
@@ -247,6 +255,25 @@ def plot_results(bo_results, true_f, save_path=None):
             simple_cum_regret = np.cumsum(simple_regret)
             simple_cum_regret_list.append(simple_cum_regret)
 
+
+        n_func_evals = np.arange(n_init, experiment_case["n_iters"] + 1 + n_init)
+        risk_averse_regret_list = np.array(risk_averse_regret_list)
+        risk_averse_regret_mean = np.mean(risk_averse_regret_list, axis=0)[n_init - 1 :]
+        risk_averse_regret_std = np.std(risk_averse_regret_list, axis=0)[n_init - 1 :]
+        risk_averse_regret_se = risk_averse_regret_std / np.sqrt(
+            risk_averse_regret_list.shape[0]
+        )
+
+        axes[0].plot(n_func_evals,risk_averse_regret_mean, label=method_name)
+        axes[0].fill_between(
+            n_func_evals,
+            risk_averse_regret_mean - risk_averse_regret_se,
+            risk_averse_regret_mean + risk_averse_regret_se,
+            alpha=0.2,
+        )
+        axes[0].set_xlim([n_init, experiment_case["n_iters"] + n_init])
+        axes[0].set_xticks(np.arange(n_init, experiment_case["n_iters"] + 1 + n_init, 20))
+
         risk_averse_cum_regret_list = np.array(risk_averse_cum_regret_list)
         risk_averse_cum_regret_mean = np.mean(risk_averse_cum_regret_list, axis=0)[
             n_init - 1 :
@@ -258,41 +285,30 @@ def plot_results(bo_results, true_f, save_path=None):
             risk_averse_cum_regret_list.shape[0]
         )  # Standard error
 
-        axes[0].plot(risk_averse_cum_regret_mean, label=method_name)
-        axes[0].fill_between(
-            range(len(risk_averse_cum_regret_mean)),
+        axes[1].plot(n_func_evals,risk_averse_cum_regret_mean, label=method_name)
+        axes[1].fill_between(
+            n_func_evals,
             risk_averse_cum_regret_mean - risk_averse_cum_regret_se,
             risk_averse_cum_regret_mean + risk_averse_cum_regret_se,
             alpha=0.2,
         )
-
-        risk_averse_regret_list = np.array(risk_averse_regret_list)
-        risk_averse_regret_mean = np.mean(risk_averse_regret_list, axis=0)[n_init - 1 :]
-        risk_averse_regret_std = np.std(risk_averse_regret_list, axis=0)[n_init - 1 :]
-        risk_averse_regret_se = risk_averse_regret_std / np.sqrt(
-            risk_averse_regret_list.shape[0]
-        )
-
-        axes[1].plot(risk_averse_regret_mean, label=method_name)
-        axes[1].fill_between(
-            range(len(risk_averse_regret_mean)),
-            risk_averse_regret_mean - risk_averse_regret_se,
-            risk_averse_regret_mean + risk_averse_regret_se,
-            alpha=0.2,
-        )
+        axes[1].set_xlim([n_init, experiment_case["n_iters"] + n_init])
+        axes[1].set_xticks(np.arange(n_init, experiment_case["n_iters"] + 1 + n_init, 20))
 
         simple_regret_list = np.array(simple_regret_list)
         simple_regret_mean = np.mean(simple_regret_list, axis=0)[n_init - 1 :]
         simple_regret_std = np.std(simple_regret_list, axis=0)[n_init - 1 :]
         simple_regret_se = simple_regret_std / np.sqrt(simple_regret_list.shape[0])
 
-        axes[2].plot(simple_regret_mean, label=method_name)  # Use `ax.plot`
+        axes[2].plot(n_func_evals, simple_regret_mean, label=method_name)  # Use `ax.plot`
         axes[2].fill_between(
-            range(len(simple_regret_mean)),
+            n_func_evals,
             simple_regret_mean - simple_regret_se,
             simple_regret_mean + simple_regret_se,
             alpha=0.2,
         )  # Use `ax.fill_between`
+        axes[2].set_xlim([n_init, experiment_case["n_iters"] + n_init])
+        axes[2].set_xticks(np.arange(n_init, experiment_case["n_iters"] + 1 + n_init, 20))
 
         simple_cum_regret_list = np.array(simple_cum_regret_list)
         simple_cum_regret_mean = np.mean(simple_cum_regret_list, axis=0)[n_init - 1 :]
@@ -300,42 +316,43 @@ def plot_results(bo_results, true_f, save_path=None):
         simple_cum_regret_se = simple_cum_regret_std / np.sqrt(
             simple_cum_regret_list.shape[0]
         )
-        axes[3].plot(simple_cum_regret_mean, label=method_name)
+        axes[3].plot(n_func_evals, simple_cum_regret_mean, label=method_name)
         axes[3].fill_between(
-            range(len(simple_cum_regret_mean)),
+            n_func_evals,
             simple_cum_regret_mean - simple_cum_regret_se,
             simple_cum_regret_mean + simple_cum_regret_se,
             alpha=0.2,
         )
-
-        # Dump results list
-        joblib.dump(risk_averse_cum_regret_list,f"output/risk_averse_cum_regret_list_{method_name}.pkl")
-        joblib.dump(risk_averse_regret_list,f"output/risk_averse_regret_list_{method_name}.pkl")
-        joblib.dump(simple_regret_list,f"output/simple_regret_list_{method_name}.pkl")
-        joblib.dump(simple_cum_regret_list,f"output/simple_cum_regret_list_{method_name}.pkl")
+        axes[3].set_xlim([n_init, experiment_case["n_iters"] + n_init])
+        axes[3].set_xticks(np.arange(n_init, experiment_case["n_iters"] + 1 + n_init, 20))
 
     axes[0].legend()
     axes[0].set_title("Risk-averse cumulative regret")
     axes[0].set_xlabel("Iteration")
     axes[0].set_ylabel("Rt (mean ± SE)")
 
-    axes[1].set_title("Risk-averse regret")
-    axes[1].set_xlabel("Iteration")
-    axes[1].set_ylabel("$MV(xt)-MV(x_*)$ (mean ± SE)")
+    #$MV(xt)-MV(x_*)$
+    #axes[0].set_xlabel("iteration")
+    axes[0].set_ylabel("Rt")
 
-    axes[2].set_title("Simple regret")
-    axes[2].set_xlabel("Iteration")
-    axes[2].set_ylabel("$f(xt)-f(x_*)$ (mean ± SE)")
+    #$\sum_{t} MV(xt)-MV(x_*)$
+    #axes[1].set_xlabel("iteration")
+    axes[1].set_ylabel("cummulative Rt")
 
-    axes[3].set_title("Simple cumulative regret")
-    axes[3].set_xlabel("Iteration")
-    axes[3].set_ylabel("cumm regret (mean ± SE)")
+    #$f(xt)-f(x_*)$
+    #axes[2].set_xlabel("iteration")
+    axes[2].set_ylabel("simple regret")
 
+    #$\sum_{t} f(xt)-f(x_*)$
+    #axes[3].set_xlabel("iteration")
+    axes[3].set_ylabel("cummulative simple regret")
+
+    fig.supxlabel("Function evaluations")  # Use `fig.supxlabel`
+    fig.suptitle("$\\text{n}_{\\text{init}} =$ "+ str(n_init), x=0.02, ha='left',  fontsize=20)  # Use `fig.suptitle`
     if save_path is not None:
-        fig.savefig(save_path, dpi=300, bbox_inches="tight")  # Use `fig.savefig`
-    else:
-        fig.savefig("img/RAHBO_experiments.pdf", dpi=300, bbox_inches="tight", format="pdf")
+        fig.savefig(save_path, dpi=300, bbox_inches="tight", format="pdf")  # Use `fig.savefig`
 
+    
     plt.show()  # Show the figure
 
 
@@ -353,8 +370,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "--output",
         type=str,
-        default="bo_results_init5.png",
-        help="Path to save the output PNG file (default: bo_results.png).",
+        default="bo_results.pdf",
+        help="Path to save the output PDF file (default: bo_results.pdf).",
     )
     parser.add_argument(
         "--result_file",
