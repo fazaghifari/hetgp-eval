@@ -66,7 +66,7 @@ class F1Toy:
     def __call__(self, X):
         target = self.func(X)
         if self.add_noise:
-            rng = np.random.RandomState(1)
+            rng = np.random
             target += rng.normal(
                 np.zeros_like(X), self.noise_func(X), size=target.shape
             )
@@ -149,6 +149,7 @@ def run_bo_experiments(experiment_case):
         init_datasets.append(init_dataset)
 
     bo_results = {"experiment_config": experiment_case, "results": {}, "time":{}}
+    bo_dict = {}
 
     for method_name in experiment_case["methods"]:
         running_method = experiment_case["methods"][method_name]
@@ -161,6 +162,7 @@ def run_bo_experiments(experiment_case):
 
         results_repeat = []
         time_repeat = []
+        bo_dict[method_name] = []
         # Run BO for each repeat
         for i in tqdm(range(n_repeats)):
             t1 = time.process_time()
@@ -195,8 +197,9 @@ def run_bo_experiments(experiment_case):
             time_repeat.append(t2-t1)
         bo_results["results"][method_name] = results_repeat
         bo_results["time"][method_name] = time_repeat
+        bo_dict[method_name].append(bo)
 
-    return bo_results
+    return bo_results, bo_dict
 
 
 def plot_results(bo_results, true_f, save_path=None):
@@ -386,9 +389,12 @@ if __name__ == "__main__":
         experiment_case = json.load(f)
 
     if args.result_file is None:
-        bo_results = run_bo_experiments(experiment_case)
+        bo_results, bo_dict = run_bo_experiments(experiment_case)
         with open("bo_5results_init20.pkl", "wb") as f:
             pickle.dump(bo_results, f)
+        with open("bo_5model_init20.pkl", "wb") as f1:
+            pickle.dump(bo_dict, f1)
+
     else:
         with open(args.result_file, "rb") as f:
             bo_results = pickle.load(f)
