@@ -390,9 +390,9 @@ if __name__ == "__main__":
 
     if args.result_file is None:
         bo_results, bo_dict = run_bo_experiments(experiment_case)
-        with open("bo_5results_init20.pkl", "wb") as f:
+        with open("bo_6results_init20.pkl", "wb") as f:
             pickle.dump(bo_results, f)
-        with open("bo_5model_init20.pkl", "wb") as f1:
+        with open("bo_6model_init20.pkl", "wb") as f1:
             pickle.dump(bo_dict, f1)
 
     else:

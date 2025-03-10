@@ -29,6 +29,18 @@
             "bo_optimizer": "Random"
         },
 
+        "KSIMLHGP-RAHBO": {
+            "model": "KSIMLHGP",
+            "acq_f": {
+                "name": "RAHBO",
+                "params": {
+                    "alpha": 2,
+                    "beta": 0.2
+                }
+            },
+            "bo_optimizer": "Random"
+        },
+
         "IMLHGP-RAHBO": {
             "model": "IMLHGP",
             "acq_f": {
