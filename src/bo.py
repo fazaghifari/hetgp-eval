@@ -48,7 +48,7 @@ class BayesianOptimizer:
 
         for iteration in range(n_iter):
             new_x, acq_val = self.step(current_observations)
-            new_y = self.true_function(new_x)
+            new_y = self.true_function(np.atleast_2d(new_x))
 
             current_observations = self.add_point_to_observations(
                 new_x, new_y, current_observations

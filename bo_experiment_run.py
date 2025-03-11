@@ -1,6 +1,6 @@
 import numpy as np
 import pickle
-import joblib
+import math
 import time
 
 from tqdm import tqdm
@@ -20,13 +20,74 @@ from src.bo import (
     RandomAcqOptimizer,
     RAHBOAcqFunction,
     ANPEIAcqFunction,
-    EIAcqFunction
+    EIAcqFunction,
 )
 
 ## SUPPRESS ALL WARNINGS
 import warnings
 
 warnings.filterwarnings("ignore")
+
+
+class Branin:
+    """
+    Branin function in a toy-function format.
+
+    The function is defined over the domain:
+        x1 ∈ [-5, 10]
+        x2 ∈ [0, 15]
+    and given by:
+        f(x) = (x2 - (5.1/(4π²))*x1² + (5/π)*x1 - 6)²
+               + 10*(1 - 1/(8π))*cos(x1) + 10
+    Noise (if enabled) is added using a heteroscedastic Gaussian model.
+    """
+
+    def __init__(self, add_noise=True, sigma=2.0):
+        self.add_noise = add_noise
+        self.sigma = sigma
+
+    @property
+    def bounds(self):
+        # Correct bounds: first variable x1 in [-5, 10] and second variable x2 in [0, 15]
+        return np.array([[-5.0, 10.0], [0.0, 15.0]])
+
+    @property
+    def minimum(self):
+        # Global minimum value of the Branin function
+        return 0.397887
+
+    @property
+    def minimizers(self):
+        # Three known global minimizers of the Branin function
+        return np.array([[-math.pi, 12.275], [math.pi, 2.275], [9.42478, 2.475]])
+
+    def sigmoid(self, x):
+        return 1.0 / (1.0 + np.exp(-x))
+
+    def noise_func(self, X):
+        # Heteroscedastic noise based on input values.
+        x1 = X[:, 0]
+        x2 = X[:, 1]
+        noise1 = self.sigmoid(2 * (x1 - 3.2)) * self.sigma + 0.2
+        noise2 = self.sigmoid(2 * (x2 - 0.0)) * self.sigma + 0.2
+        return noise1 * noise2
+
+    def func(self, X):
+        # Compute the Branin function.
+        x1 = X[:, 0]
+        x2 = X[:, 1]
+        term1 = x2 - (5.1 / (4 * math.pi**2)) * x1**2 + (5 / math.pi) * x1 - 6
+        term2 = 10 * (1 - 1 / (8 * math.pi)) * np.cos(x1)
+        result = term1**2 + term2 + 10
+        return result
+
+    def __call__(self, X):
+        target = self.func(X)
+        if self.add_noise:
+            noise_std = self.noise_func(X)
+            noise = np.random.normal(loc=0.0, scale=noise_std, size=target.shape)
+            target = target + noise
+        return target
 
 
 class F1Toy:
@@ -73,18 +134,16 @@ class F1Toy:
         return target.squeeze()
 
 
-benchmark_f_dict = {"f1_toy": F1Toy()}
+benchmark_f_dict = {"f1_toy": F1Toy(), "branin": Branin()}
 
 
-def build_model(model_name):
+def build_model(model_name, dim=1):
     base_kernel = ConstantKernel(1.0) * RBF(
-        length_scale=0.1, length_scale_bounds=(0.01, 100)
-    ) + WhiteKernel(noise_level=1, noise_level_bounds=(0.001, 10))
-
+        length_scale=[(1e1)] * dim, length_scale_bounds=[(1e-3, 1)] * dim
+    ) + WhiteKernel(noise_level=1, noise_level_bounds=(1e-4, 5e-1))
     noise_kernel = ConstantKernel(1.0) * RBF(
-        length_scale=0.1, length_scale_bounds=(0.01, 100)
-    ) + WhiteKernel(noise_level=1, noise_level_bounds=(0.001, 10))
-
+        length_scale=[(1e1)] * dim, length_scale_bounds=[(1e-3, 1)] * dim
+    ) + WhiteKernel(noise_level=1, noise_level_bounds=(1e-4, 8e-2))
     gp = GaussianProcessRegressor(kernel=base_kernel, n_restarts_optimizer=25)
     gp_noise = GaussianProcessRegressor(kernel=noise_kernel, n_restarts_optimizer=25)
 
@@ -148,7 +207,7 @@ def run_bo_experiments(experiment_case):
         init_dataset = {"X": x_init, "y": y_init}
         init_datasets.append(init_dataset)
 
-    bo_results = {"experiment_config": experiment_case, "results": {}, "time":{}}
+    bo_results = {"experiment_config": experiment_case, "results": {}, "time": {}}
     bo_dict = {}
 
     for method_name in experiment_case["methods"]:
@@ -170,7 +229,7 @@ def run_bo_experiments(experiment_case):
                 print(f"Running rep {i+1}/{n_repeats} of {method_name}")
 
             init_dataset = init_datasets[i]
-            model = build_model(running_method["model"])
+            model = build_model(running_method["model"], dim=bounds.shape[-1])
             acq_f = build_acq_f(running_method["acq_f"])
             bo_optimizer = build_acq_opt(running_method["bo_optimizer"], bounds)
 
@@ -194,7 +253,7 @@ def run_bo_experiments(experiment_case):
                 )
             t2 = time.process_time()
             results_repeat.append(result)
-            time_repeat.append(t2-t1)
+            time_repeat.append(t2 - t1)
         bo_results["results"][method_name] = results_repeat
         bo_results["time"][method_name] = time_repeat
         bo_dict[method_name].append(bo)
@@ -205,12 +264,15 @@ def run_bo_experiments(experiment_case):
 def plot_results(bo_results, true_f, save_path=None):
     import matplotlib.pyplot as plt
     import scienceplots
-    plt.rcParams['text.usetex'] = True
-    plt.style.use('science')
-    params = {'xtick.labelsize':12,
-          'ytick.labelsize':12,
-          'axes.labelsize': 16,
-          'axes.titlesize': 18}
+
+    plt.rcParams["text.usetex"] = True
+    plt.style.use("science")
+    params = {
+        "xtick.labelsize": 12,
+        "ytick.labelsize": 12,
+        "axes.labelsize": 16,
+        "axes.titlesize": 18,
+    }
     plt.rcParams.update(params)
     import numpy as np
 
@@ -258,7 +320,6 @@ def plot_results(bo_results, true_f, save_path=None):
             simple_cum_regret = np.cumsum(simple_regret)
             simple_cum_regret_list.append(simple_cum_regret)
 
-
         n_func_evals = np.arange(n_init, experiment_case["n_iters"] + 1 + n_init)
         risk_averse_regret_list = np.array(risk_averse_regret_list)
         risk_averse_regret_mean = np.mean(risk_averse_regret_list, axis=0)[n_init - 1 :]
@@ -267,7 +328,7 @@ def plot_results(bo_results, true_f, save_path=None):
             risk_averse_regret_list.shape[0]
         )
 
-        axes[0].plot(n_func_evals,risk_averse_regret_mean, label=method_name)
+        axes[0].plot(n_func_evals, risk_averse_regret_mean, label=method_name)
         axes[0].fill_between(
             n_func_evals,
             risk_averse_regret_mean - risk_averse_regret_se,
@@ -275,7 +336,9 @@ def plot_results(bo_results, true_f, save_path=None):
             alpha=0.2,
         )
         axes[0].set_xlim([n_init, experiment_case["n_iters"] + n_init])
-        axes[0].set_xticks(np.arange(n_init, experiment_case["n_iters"] + 1 + n_init, 20))
+        axes[0].set_xticks(
+            np.arange(n_init, experiment_case["n_iters"] + 1 + n_init, 20)
+        )
 
         risk_averse_cum_regret_list = np.array(risk_averse_cum_regret_list)
         risk_averse_cum_regret_mean = np.mean(risk_averse_cum_regret_list, axis=0)[
@@ -288,7 +351,7 @@ def plot_results(bo_results, true_f, save_path=None):
             risk_averse_cum_regret_list.shape[0]
         )  # Standard error
 
-        axes[1].plot(n_func_evals,risk_averse_cum_regret_mean, label=method_name)
+        axes[1].plot(n_func_evals, risk_averse_cum_regret_mean, label=method_name)
         axes[1].fill_between(
             n_func_evals,
             risk_averse_cum_regret_mean - risk_averse_cum_regret_se,
@@ -296,14 +359,18 @@ def plot_results(bo_results, true_f, save_path=None):
             alpha=0.2,
         )
         axes[1].set_xlim([n_init, experiment_case["n_iters"] + n_init])
-        axes[1].set_xticks(np.arange(n_init, experiment_case["n_iters"] + 1 + n_init, 20))
+        axes[1].set_xticks(
+            np.arange(n_init, experiment_case["n_iters"] + 1 + n_init, 20)
+        )
 
         simple_regret_list = np.array(simple_regret_list)
         simple_regret_mean = np.mean(simple_regret_list, axis=0)[n_init - 1 :]
         simple_regret_std = np.std(simple_regret_list, axis=0)[n_init - 1 :]
         simple_regret_se = simple_regret_std / np.sqrt(simple_regret_list.shape[0])
 
-        axes[2].plot(n_func_evals, simple_regret_mean, label=method_name)  # Use `ax.plot`
+        axes[2].plot(
+            n_func_evals, simple_regret_mean, label=method_name
+        )  # Use `ax.plot`
         axes[2].fill_between(
             n_func_evals,
             simple_regret_mean - simple_regret_se,
@@ -311,7 +378,9 @@ def plot_results(bo_results, true_f, save_path=None):
             alpha=0.2,
         )  # Use `ax.fill_between`
         axes[2].set_xlim([n_init, experiment_case["n_iters"] + n_init])
-        axes[2].set_xticks(np.arange(n_init, experiment_case["n_iters"] + 1 + n_init, 20))
+        axes[2].set_xticks(
+            np.arange(n_init, experiment_case["n_iters"] + 1 + n_init, 20)
+        )
 
         simple_cum_regret_list = np.array(simple_cum_regret_list)
         simple_cum_regret_mean = np.mean(simple_cum_regret_list, axis=0)[n_init - 1 :]
@@ -327,35 +396,40 @@ def plot_results(bo_results, true_f, save_path=None):
             alpha=0.2,
         )
         axes[3].set_xlim([n_init, experiment_case["n_iters"] + n_init])
-        axes[3].set_xticks(np.arange(n_init, experiment_case["n_iters"] + 1 + n_init, 20))
+        axes[3].set_xticks(
+            np.arange(n_init, experiment_case["n_iters"] + 1 + n_init, 20)
+        )
 
     axes[0].legend()
     axes[0].set_title("Risk-averse cumulative regret")
     axes[0].set_xlabel("Iteration")
     axes[0].set_ylabel("Rt (mean ± SE)")
 
-    #$MV(xt)-MV(x_*)$
-    #axes[0].set_xlabel("iteration")
+    # $MV(xt)-MV(x_*)$
+    # axes[0].set_xlabel("iteration")
     axes[0].set_ylabel("Rt")
 
-    #$\sum_{t} MV(xt)-MV(x_*)$
-    #axes[1].set_xlabel("iteration")
+    # $\sum_{t} MV(xt)-MV(x_*)$
+    # axes[1].set_xlabel("iteration")
     axes[1].set_ylabel("cummulative Rt")
 
-    #$f(xt)-f(x_*)$
-    #axes[2].set_xlabel("iteration")
+    # $f(xt)-f(x_*)$
+    # axes[2].set_xlabel("iteration")
     axes[2].set_ylabel("simple regret")
 
-    #$\sum_{t} f(xt)-f(x_*)$
-    #axes[3].set_xlabel("iteration")
+    # $\sum_{t} f(xt)-f(x_*)$
+    # axes[3].set_xlabel("iteration")
     axes[3].set_ylabel("cummulative simple regret")
 
     fig.supxlabel("Function evaluations")  # Use `fig.supxlabel`
-    fig.suptitle("$\\text{n}_{\\text{init}} =$ "+ str(n_init), x=0.02, ha='left',  fontsize=20)  # Use `fig.suptitle`
+    fig.suptitle(
+        "$\\text{n}_{\\text{init}} =$ " + str(n_init), x=0.02, ha="left", fontsize=20
+    )  # Use `fig.suptitle`
     if save_path is not None:
-        fig.savefig(save_path, dpi=300, bbox_inches="tight", format="pdf")  # Use `fig.savefig`
+        fig.savefig(
+            save_path, dpi=300, bbox_inches="tight", format="pdf"
+        )  # Use `fig.savefig`
 
-    
     plt.show()  # Show the figure
 
 
