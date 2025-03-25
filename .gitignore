@@ -166,6 +166,7 @@ cython_debug/
 img/
 output/.DS_Store
 *.pkl
+.DS_Store
 
 #Files
 bo_toy.ipynb
