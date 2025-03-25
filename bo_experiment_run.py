@@ -49,17 +49,25 @@ class Branin:
     @property
     def bounds(self):
         # Correct bounds: first variable x1 in [-5, 10] and second variable x2 in [0, 15]
-        return np.array([[-5.0, 10.0], [0.0, 15.0]])
+        # return np.array([[-5.0, 10.0], [0.0, 15.0]])
+        return np.array([[-5.0, 0.0], [10.0, 15.0]]) # definition low = [-5,0], high = [10,15]
+        
+
 
     @property
     def minimum(self):
         # Global minimum value of the Branin function
         return 0.397887
+    
+    @property
+    def alpha(self):
+        return 1.0
 
     @property
-    def minimizers(self):
+    def minimizer(self):
         # Three known global minimizers of the Branin function
-        return np.array([[-math.pi, 12.275], [math.pi, 2.275], [9.42478, 2.475]])
+        # return np.array([[-math.pi, 12.275], [math.pi, 2.275], [9.42478, 2.475]])
+        return np.array([[-math.pi, 12.275]])
 
     def sigmoid(self, x):
         return 1.0 / (1.0 + np.exp(-x))
@@ -81,6 +89,9 @@ class Branin:
         result = term1**2 + term2 + 10
         return result
 
+    def mv(self, X):
+        return self.func(X) + (self.alpha * self.noise_func(X))
+    
     def __call__(self, X):
         target = self.func(X)
         if self.add_noise:
@@ -441,13 +452,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config",
         type=str,
-        default="bo_experiments_config.json",
+        default="bo2_experiments_config.json",
         help="Path to the JSON configuration file (default: bo_experiments_config.json).",
     )
     parser.add_argument(
         "--output",
         type=str,
-        default="bo_results.pdf",
+        default="bo2_results.pdf",
         help="Path to save the output PDF file (default: bo_results.pdf).",
     )
     parser.add_argument(
@@ -464,9 +475,9 @@ if __name__ == "__main__":
 
     if args.result_file is None:
         bo_results, bo_dict = run_bo_experiments(experiment_case)
-        with open("bo_6results_init20.pkl", "wb") as f:
+        with open("bo2_6results_init10.pkl", "wb") as f:
             pickle.dump(bo_results, f)
-        with open("bo_6model_init20.pkl", "wb") as f1:
+        with open("bo2_6model_init10.pkl", "wb") as f1:
             pickle.dump(bo_dict, f1)
 
     else:

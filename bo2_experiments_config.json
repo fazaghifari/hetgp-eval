@@ -1,0 +1,78 @@
+{
+    "benchmark_f": "branin",
+    "n_init":10,
+    "n_iters": 100,
+    "n_repeats": 10,
+    "verbose": true,
+    "methods": {
+        "KSMLHGP-RAHBO": {
+            "model": "KSMLHGP",
+            "acq_f": {
+                "name": "RAHBO",
+                "params": {
+                    "alpha": 2,
+                    "beta": 0.2
+                }
+            },
+            "bo_optimizer": "Random"
+        },
+
+        "MLHGP-RAHBO": {
+            "model": "MLHGP",
+            "acq_f": {
+                "name": "RAHBO",
+                "params": {
+                    "alpha": 2,
+                    "beta": 0.2
+                }
+            },
+            "bo_optimizer": "Random"
+        },
+
+        "KSIMLHGP-RAHBO": {
+            "model": "KSIMLHGP",
+            "acq_f": {
+                "name": "RAHBO",
+                "params": {
+                    "alpha": 2,
+                    "beta": 0.2
+                }
+            },
+            "bo_optimizer": "Random"
+        },
+
+        "IMLHGP-RAHBO": {
+            "model": "IMLHGP",
+            "acq_f": {
+                "name": "RAHBO",
+                "params": {
+                    "alpha": 2,
+                    "beta": 0.2
+                }
+            },
+            "bo_optimizer": "Random"
+        },
+        
+        "NNPEHGP-RAHBO": {
+            "model": "NNPEHGP",
+            "acq_f": {
+                "name": "RAHBO",
+                "params": {
+                    "alpha": 2,
+                    "beta": 0.2
+                }
+            },
+            "bo_optimizer": "Random"
+        },
+        "GP-LCB": {
+            "model": "GP",
+            "acq_f": {
+                "name": "LCB",
+                "params": {
+                    "beta": 0.2
+                }
+            },
+            "bo_optimizer": "Random"
+        }
+    }
+}
