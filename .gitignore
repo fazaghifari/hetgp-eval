@@ -166,3 +166,14 @@ cython_debug/
 img/
 output/.DS_Store
 *.pkl
+
+#Files
+bo_toy.ipynb
+case3_2D.ipynb
+gpflow_heteroscedastic.ipynb
+heat_evaluator.ipynb
+homoscedasticGP.ipynb
+imlhgp_test.ipynb
+mlhgp_test.ipynb
+nnpehgp_test.ipynb
+rnhgp_test.ipynb
